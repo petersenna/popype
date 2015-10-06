@@ -11,7 +11,7 @@ from configparser import ConfigParser, ExtendedInterpolation
 
 def check_config(config):
     """ Check if the configuration file has the minimum parameters"""
-    for section in ['globals', 'smpl', 'git-output', 'git-input']:
+    for section in ['com', 'cocci', 'git_out', 'git_in']:
         if section not in config.sections():
             print("Section " + section + " not found in the config file.")
 
@@ -26,6 +26,7 @@ def main():
         for key in config[sec]:
             print(sec, key, config.get(sec, key))
 
+    print(config.sections()) 
 
 if __name__ == '__main__':
     main()
