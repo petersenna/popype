@@ -1,0 +1,45 @@
+[globals]
+name_version=Feature_Extraction-1.0.0-2015-10-06
+smpl_file=cont_lines.cocci
+git_in_checkout=v2.6.11
+
+[smpl]
+url: https://raw.githubusercontent.com/petersenna/smpl/master/%(smpl_file)
+opts: --all-includes --recursive-includes
+
+[git-output]
+repo-url: git@github.com:petersenna/smpl.git
+branch: %(name_version)
+out-file: %(name_version)/out/%(smpl_file)/%(git_in_checkout).out.xz
+key:
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpgIBAAKCAQEAsXEOeaUG5Cf/kloPMeeS5waDlAEE072pp1asgHJSZX6Jg9mn
+1jc2ysmHU7kzOLUYW1wl03T/IU07FhdI5g7scNJaKug86LJ3eyoARjQO4HdgQtwx
+kD4JPA7dA0bmL9kGsMjjT6MVxvvDIWdqVLqpdjqt53EW0E+ZTIv5tJZEy2qk6v9T
+J2jzhUH7hBQiVD/anbUSmzyn/XOvLmCOIBqKZLgm3RT7HnTTFQLG3nPHu7BBxJFK
+Mwy+i69nLN2VgzD54hIc50kGB0yyqcuJeRVkD0Ri2TP9gwy5bgKixuZ9nfyBKFgU
+1hZ5oODL8YQB91aQR+CAzrea6u1jbtMFjGshiQIDAQABAoIBAQCcsPqYXyurtMqS
+YacDabym+HCe9RtfJCA53mcsckfiypAC9+SnXVCsWLSBMY1S6VCd9MyOY8Wckce4
+pU1BozIWGxt2wmhvEJJEF/3wAK6Wd7RwtmOqPa4H9BQlfalt3Vd0K6HXxGtJsS9K
+Qzl5ovBcsEq7k3kS8QetufoDB6OugICVjbCPm2Ao2E7Z6SFq+qKH5qVUDEdakmko
+ZwNIdzwPrR8HyA4hg3O1yVS331u2s8h0u/OzyfXo8Iowsxkp5Zsr9vVcBSGFJYJ4
+6V3N6Sj05v3aA2aUDN9pFAfpfjCQLHxQ6BXsTYcxuGS+n0GJm4CCS/c2ANx1hQtZ
+aV66o3iBAoGBANuQHxdkwlmH+OjcBduNMWusHCnY9AzREEV0CyNw/zH0EDMr8Oeh
+NNXEdzXzcJl4YlGisw2IIAkJISN0XxWY9fZKpYxsXIUZ29JcKu8NA0sFhtxVd2qs
+cjMseQlgyRb/Gl0UlSiM0uHh9N8iuzBl6lv98KDxzwgu2ht0RUWryQvZAoGBAM7j
+dV249rGuOhnKYu+cx+zflqpd+oICRf+A1iZ0Q27heeDVyN5p8X1NcbMkPjkEIEl5
+tlFMx/7XxaVaylGWf9+//J9Uc1+EB39RDCOlZi4MnsiKF4/a2SC95tL2tqgOONxu
+y3qPre0zrl7Jl14rP70qWMrvgkc3IT4D2UMZlaUxAoGBAJtRu7zXyWh+eMV5iCdF
+HXXWveGYmSRL7J/FNG/w6oZS6fbZGcUx0+d44P/oY3odoCex2cozxr29mJS1KOJl
+X3HIYo4Qxe5eWZPZIYIUCYVTtpA9YYmzzeGHj2Pj9Lzw35yDB/U0kaW7K3eB4Tue
+jQhgfo3MITHfuuj6+loL6OAZAoGBALYzwehBfhlrPEX8ZHdr1vK40uLFk1ouEGF9
+oJwLJlwffQvSm22tVf0pWCoRkC78gEbVRwiAm13Hv4vp0mZaKdHvLddQM696AnRQ
+92TpRHznpmssmqWZckGQnRlMJ/8HT3JqrQ8KPH27VySpW4KWijLZeYt3tX9sgP0x
+vISIoq7xAoGBAMihMb2TOLAfrJry7zNvYngLHWgMEonN4u8AHZ26AVYqHAy2EcY8
+uM4pmFvoj5Q/yYeLsr3Qb93uCR7fTwcl0RYhv/33wKAtWCqmAkdKwg0F7yNAcHHt
+OA2F1k0tBYUDbVu9uouQIsiWl7HIrTeD21nYo1TnPRW7LnmizLtMc258
+-----END RSA PRIVATE KEY-----
+
+[git-input]
+config-url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
+checkout: %(git_in_checkout)
