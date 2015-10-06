@@ -11,6 +11,9 @@ opts: --timeout 500 --all-includes --recursive-includes
 [git_out]
 repo_url: git@github.com:petersenna/smpl.git
 branch: ${com:name}
+
+# Do not change this without updating the source code. It is
+# important that the ${cocci:file} is part of the path
 result_file: ${com:name}/${cocci:file}/${git_in:checkout}.out.xz
 
 # Paste your private key here and add at least one leading space to each line

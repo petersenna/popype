@@ -103,6 +103,13 @@ def setup_git_out(config):
         call("git checkout -b " + branch, shell=True, cwd=git_out_dir)
         call("git push origin " + branch, shell=True, cwd=git_out_dir)
 
+    # The branch does not exist
+    else:
+        call("git checkout remotes/origin/" + branch,
+             shell=True, cwd=git_out_dir)
+        call("git checkout -b " + branch, shell=True, cwd=git_out_dir)
+
+    if not os.path.isdir(result_dir):
         # Create the result directory
         os.makedirs(result_dir)
 
@@ -114,15 +121,14 @@ def setup_git_out(config):
         call("git commit -m '$(date)'", shell=True, cwd=git_out_dir)
 
         # Push the commit to the remote
-        ret = call("git push --set-upstream origin  " + branch, shell=True, cwd=git_out_dir)
-
-    # The branch exist
-    else:
+        ret = call("git push --set-upstream origin  " + branch,
+                   shell=True, cwd=git_out_dir)
 
     return ret
 
 def main():
     """ Good old main """
+
     config = ConfigParser(interpolation=ExtendedInterpolation())
     config.read("single_job_config")
 
