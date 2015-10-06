@@ -1,16 +1,16 @@
-[globals]
+[com]
 name_version=Feature_Extraction-1.0.0-2015-10-06
 smpl_file=cont_lines.cocci
 git_in_checkout=v2.6.11
 
 [smpl]
-url: https://raw.githubusercontent.com/petersenna/smpl/master/%(smpl_file)
+url: https://raw.githubusercontent.com/petersenna/smpl/master/${com:smpl_file}
 opts: --timeout 500 --all-includes --recursive-includes
 
 [git-output]
 repo-url: git@github.com:petersenna/smpl.git
-branch: %(name_version)
-out-file: %(name_version)/out/%(smpl_file)/%(git_in_checkout).out.xz
+branch: ${com:name_version}
+out-file: ${com:name_version}/out/${com:smpl_file}/${com:git_in_checkout}.out.xz
 
 # Paste your private key here and add at least one leading space to each line
 key: -----BEGIN RSA PRIVATE KEY-----
@@ -43,4 +43,4 @@ key: -----BEGIN RSA PRIVATE KEY-----
 
 [git-input]
 config-url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
-checkout: %(git_in_checkout)
+checkout: ${com:git_in_checkout}

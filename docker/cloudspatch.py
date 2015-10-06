@@ -7,8 +7,7 @@ __email__ = "peter.senna@gmail.com"
 __license__ = "GPLv2"
 __version__ = "Alpha"
 
-
-import configparser
+from configparser import ConfigParser, ExtendedInterpolation
 
 def check_config(config):
     """ Check if the configuration file has the minimum parameters"""
@@ -18,12 +17,14 @@ def check_config(config):
 
 def main():
     """ Good old main """
-    config = configparser.RawConfigParser()
+    config = ConfigParser(interpolation=ExtendedInterpolation())
     config.read("single_job_config")
 
     check_config(config)
 
-    print(config.sections())
+    for sec in config.sections():
+        for key in config[sec]:
+            print(sec, key, config.get(sec, key))
 
 
 if __name__ == '__main__':
