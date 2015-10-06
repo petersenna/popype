@@ -5,7 +5,7 @@ git_in_checkout=v2.6.11
 
 [smpl]
 url: https://raw.githubusercontent.com/petersenna/smpl/master/%(smpl_file)
-opts: --all-includes --recursive-includes
+opts: --timeout 500 --all-includes --recursive-includes
 
 [git-output]
 repo-url: git@github.com:petersenna/smpl.git
