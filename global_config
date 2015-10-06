@@ -40,6 +40,7 @@ OA2F1k0tBYUDbVu9uouQIsiWl7HIrTeD21nYo1TnPRW7LnmizLtMc258
 [smpl]
 # There should be no space on the url. Add spatch options after the url
 # separated by spaces
+default-opts: --timeout 500
 url-opts: https://raw.githubusercontent.com/petersenna/smpl/master/cont_lines.cocci --all-includes --recursive-includes
 url-opts: https://raw.githubusercontent.com/petersenna/smpl/master/cont_lines2.cocci --all-includes --recursive-includes
 url-opts: https://raw.githubusercontent.com/petersenna/smpl/master/cont_lines3.cocci --recursive-includes
