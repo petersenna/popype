@@ -11,7 +11,7 @@ opts: --timeout 500 --all-includes --recursive-includes
 [git_out]
 repo_url: git@github.com:petersenna/smpl.git
 branch: ${com:name}
-result_file: ${com:name}/out/${cocci:file}/${git_in:checkout}.out.xz
+result_file: ${com:name}/${cocci:file}/${git_in:checkout}.out.xz
 
 # Paste your private key here and add at least one leading space to each line
 key: -----BEGIN RSA PRIVATE KEY-----
