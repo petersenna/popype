@@ -1,0 +1,102 @@
+[labels]
+name: Feature Extraction
+version: 1.0.0 (October 6 2015)
+owner: Peter Senna Tschudin <peter.senna@gmail.com>
+
+[servers]
+server: hp-peter.rsr.lip6.fr
+server: bossa.rsr.lip6.fr
+server: amd48-systeme.lip6.fr
+user: peter
+key: 
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpgIBAAKCAQEAsXEOeaUG5Cf/kloPMeeS5waDlAEE072pp1asgHJSZX6Jg9mn
+1jc2ysmHU7kzOLUYW1wl03T/IU07FhdI5g7scNJaKug86LJ3eyoARjQO4HdgQtwx
+kD4JPA7dA0bmL9kGsMjjT6MVxvvDIWdqVLqpdjqt53EW0E+ZTIv5tJZEy2qk6v9T
+J2jzhUH7hBQiVD/anbUSmzyn/XOvLmCOIBqKZLgm3RT7HnTTFQLG3nPHu7BBxJFK
+Mwy+i69nLN2VgzD54hIc50kGB0yyqcuJeRVkD0Ri2TP9gwy5bgKixuZ9nfyBKFgU
+1hZ5oODL8YQB91aQR+CAzrea6u1jbtMFjGshiQIDAQABAoIBAQCcsPqYXyurtMqS
+YacDabym+HCe9RtfJCA53mcsckfiypAC9+SnXVCsWLSBMY1S6VCd9MyOY8Wckce4
+pU1BozIWGxt2wmhvEJJEF/3wAK6Wd7RwtmOqPa4H9BQlfalt3Vd0K6HXxGtJsS9K
+Qzl5ovBcsEq7k3kS8QetufoDB6OugICVjbCPm2Ao2E7Z6SFq+qKH5qVUDEdakmko
+ZwNIdzwPrR8HyA4hg3O1yVS331u2s8h0u/OzyfXo8Iowsxkp5Zsr9vVcBSGFJYJ4
+6V3N6Sj05v3aA2aUDN9pFAfpfjCQLHxQ6BXsTYcxuGS+n0GJm4CCS/c2ANx1hQtZ
+aV66o3iBAoGBANuQHxdkwlmH+OjcBduNMWusHCnY9AzREEV0CyNw/zH0EDMr8Oeh
+NNXEdzXzcJl4YlGisw2IIAkJISN0XxWY9fZKpYxsXIUZ29JcKu8NA0sFhtxVd2qs
+cjMseQlgyRb/Gl0UlSiM0uHh9N8iuzBl6lv98KDxzwgu2ht0RUWryQvZAoGBAM7j
+dV249rGuOhnKYu+cx+zflqpd+oICRf+A1iZ0Q27heeDVyN5p8X1NcbMkPjkEIEl5
+tlFMx/7XxaVaylGWf9+//J9Uc1+EB39RDCOlZi4MnsiKF4/a2SC95tL2tqgOONxu
+y3qPre0zrl7Jl14rP70qWMrvgkc3IT4D2UMZlaUxAoGBAJtRu7zXyWh+eMV5iCdF
+HXXWveGYmSRL7J/FNG/w6oZS6fbZGcUx0+d44P/oY3odoCex2cozxr29mJS1KOJl
+X3HIYo4Qxe5eWZPZIYIUCYVTtpA9YYmzzeGHj2Pj9Lzw35yDB/U0kaW7K3eB4Tue
+jQhgfo3MITHfuuj6+loL6OAZAoGBALYzwehBfhlrPEX8ZHdr1vK40uLFk1ouEGF9
+oJwLJlwffQvSm22tVf0pWCoRkC78gEbVRwiAm13Hv4vp0mZaKdHvLddQM696AnRQ
+92TpRHznpmssmqWZckGQnRlMJ/8HT3JqrQ8KPH27VySpW4KWijLZeYt3tX9sgP0x
+vISIoq7xAoGBAMihMb2TOLAfrJry7zNvYngLHWgMEonN4u8AHZ26AVYqHAy2EcY8
+uM4pmFvoj5Q/yYeLsr3Qb93uCR7fTwcl0RYhv/33wKAtWCqmAkdKwg0F7yNAcHHt
+OA2F1k0tBYUDbVu9uouQIsiWl7HIrTeD21nYo1TnPRW7LnmizLtMc258
+-----END RSA PRIVATE KEY-----
+
+[smpl]
+# There should be no space on the url. Add spatch options after the url
+# separated by spaces
+url-opts: https://raw.githubusercontent.com/petersenna/smpl/master/cont_lines.cocci --all-includes --recursive-includes
+url-opts: https://raw.githubusercontent.com/petersenna/smpl/master/cont_lines2.cocci --all-includes --recursive-includes
+url-opts: https://raw.githubusercontent.com/petersenna/smpl/master/cont_lines3.cocci --recursive-includes
+
+[git-output]
+# This is where the results will be saved to
+repo-url: git@github.com:petersenna/smpl.git
+#config-url:
+branch: auto
+folder: auto
+key:
+-----BEGIN RSA PRIVATE KEY-----
+MIIEpgIBAAKCAQEAsXEOeaUG5Cf/kloPMeeS5waDlAEE072pp1asgHJSZX6Jg9mn
+1jc2ysmHU7kzOLUYW1wl03T/IU07FhdI5g7scNJaKug86LJ3eyoARjQO4HdgQtwx
+kD4JPA7dA0bmL9kGsMjjT6MVxvvDIWdqVLqpdjqt53EW0E+ZTIv5tJZEy2qk6v9T
+J2jzhUH7hBQiVD/anbUSmzyn/XOvLmCOIBqKZLgm3RT7HnTTFQLG3nPHu7BBxJFK
+Mwy+i69nLN2VgzD54hIc50kGB0yyqcuJeRVkD0Ri2TP9gwy5bgKixuZ9nfyBKFgU
+1hZ5oODL8YQB91aQR+CAzrea6u1jbtMFjGshiQIDAQABAoIBAQCcsPqYXyurtMqS
+YacDabym+HCe9RtfJCA53mcsckfiypAC9+SnXVCsWLSBMY1S6VCd9MyOY8Wckce4
+pU1BozIWGxt2wmhvEJJEF/3wAK6Wd7RwtmOqPa4H9BQlfalt3Vd0K6HXxGtJsS9K
+Qzl5ovBcsEq7k3kS8QetufoDB6OugICVjbCPm2Ao2E7Z6SFq+qKH5qVUDEdakmko
+ZwNIdzwPrR8HyA4hg3O1yVS331u2s8h0u/OzyfXo8Iowsxkp5Zsr9vVcBSGFJYJ4
+6V3N6Sj05v3aA2aUDN9pFAfpfjCQLHxQ6BXsTYcxuGS+n0GJm4CCS/c2ANx1hQtZ
+aV66o3iBAoGBANuQHxdkwlmH+OjcBduNMWusHCnY9AzREEV0CyNw/zH0EDMr8Oeh
+NNXEdzXzcJl4YlGisw2IIAkJISN0XxWY9fZKpYxsXIUZ29JcKu8NA0sFhtxVd2qs
+cjMseQlgyRb/Gl0UlSiM0uHh9N8iuzBl6lv98KDxzwgu2ht0RUWryQvZAoGBAM7j
+dV249rGuOhnKYu+cx+zflqpd+oICRf+A1iZ0Q27heeDVyN5p8X1NcbMkPjkEIEl5
+tlFMx/7XxaVaylGWf9+//J9Uc1+EB39RDCOlZi4MnsiKF4/a2SC95tL2tqgOONxu
+y3qPre0zrl7Jl14rP70qWMrvgkc3IT4D2UMZlaUxAoGBAJtRu7zXyWh+eMV5iCdF
+HXXWveGYmSRL7J/FNG/w6oZS6fbZGcUx0+d44P/oY3odoCex2cozxr29mJS1KOJl
+X3HIYo4Qxe5eWZPZIYIUCYVTtpA9YYmzzeGHj2Pj9Lzw35yDB/U0kaW7K3eB4Tue
+jQhgfo3MITHfuuj6+loL6OAZAoGBALYzwehBfhlrPEX8ZHdr1vK40uLFk1ouEGF9
+oJwLJlwffQvSm22tVf0pWCoRkC78gEbVRwiAm13Hv4vp0mZaKdHvLddQM696AnRQ
+92TpRHznpmssmqWZckGQnRlMJ/8HT3JqrQ8KPH27VySpW4KWijLZeYt3tX9sgP0x
+vISIoq7xAoGBAMihMb2TOLAfrJry7zNvYngLHWgMEonN4u8AHZ26AVYqHAy2EcY8
+uM4pmFvoj5Q/yYeLsr3Qb93uCR7fTwcl0RYhv/33wKAtWCqmAkdKwg0F7yNAcHHt
+OA2F1k0tBYUDbVu9uouQIsiWl7HIrTeD21nYo1TnPRW7LnmizLtMc258
+-----END RSA PRIVATE KEY-----
+
+[git-input]
+# This is where the semantic patch will be executed
+config-url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
+
+[task]
+# Checkout each version and apply the smpl to it
+checkout: linux-stable/linux-*
+checkout: v4.2
+checkout: 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2
+checkout-regex: "^v2.6.[0-9]*$"
+checkout-regex: "^v3.[0-9]*$"
+checkout-regex: "^v4.[0-9]*$"
+
+# Given a list or a range of commits, apply the smpl before and after the
+# change and associate the diff of the smpl output to the commit id. The
+# state before the change is obtained by a git checkout commit^ while the
+# state after the change is obtained by a git checkout commit.
+commit: 0fdea1e8a2853f79d39b8555cc9de16a7e0ab26f 37a1d3611c126fd9782ce5235791f898f053e763 74c600e36455af85c593702670f38709ca1951ce d24c8f24ea897ae89738b865a41b0a5d70137c46
+commit-range: v4.1 v4.2
+commit-range: remotes/linux/master remotes/linux-next/master
+commit-range: 1da177e4c3f41524e886b7f1b8a0c1fc7321cac2 v4.2
