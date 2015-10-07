@@ -12,12 +12,12 @@ from configparser import ConfigParser, ExtendedInterpolation
 from subprocess import call
 import os
 
-def check_config(config):
+def check_job_config(job_conf):
     """ Check if the configuration file has the minimum parameters"""
 
     ret = 0
     for section in ['com', 'cocci', 'git_out', 'git_in']:
-        if section not in config.sections():
+        if section not in job_conf.sections():
             print("Section " + section + " not found in the config file.")
             ret = -1
 
@@ -30,30 +30,29 @@ def update_config_check(config):
     for sec in config.sections():
         print(sec + ": " + str(list(config[sec].keys())))
 
-def get_cocci_file(config):
+def get_cocci_file(csp_conf, job_conf):
     """Download the cocci:file and save it at /tmp"""
 
-    cocci_url = config.get("cocci", "url")
-    cocci_file = config.get("cocci", "file")
-    ret = call("curl -s " + cocci_url + " > /tmp/" + cocci_file,
+    dl_dir = csp_conf.get("dir", "cocci_dl_dir")
+    cocci_url = job_conf.get("cocci", "url")
+    cocci_file = job_conf.get("cocci", "file")
+    ret = call("curl -s " + cocci_url + " > " + dl_dir + "/" + cocci_file,
                shell=True, cwd=r"/tmp")
 
     return ret
 
-def setup_git_out(config):
+def setup_git_out(csp_conf, job_conf):
     """Configure ssh access to git repository for saving the results"""
 
-    id_rsa = "/tmp/id_rsa"
-    #id_rsa = "/root/.ssh/id_rsa"
+    id_rsa = csp_conf.get("dir", "id_rsa_dir") + "/id_rsa"
 
-    git_out_dir = "/tmp/git_out"
-    #git_out_dir = "/git_out"
+    git_out_dir = csp_conf.get("dir", "git_out_dir")
 
-    branch = config.get("git_out", "branch")
-    result_file = git_out_dir + "/" + config.get("git_out", "result_file")
+    branch = job_conf.get("git_out", "branch")
+    result_file = git_out_dir + "/" + job_conf.get("git_out", "result_file")
     result_dir = os.path.dirname(result_file)
 
-    cocci_file = config.get("cocci", "file")
+    cocci_file = job_conf.get("cocci", "file")
 
     # Create ~/.ssh for id_rsa
     id_rsa_dir = os.path.dirname(id_rsa)
@@ -62,13 +61,13 @@ def setup_git_out(config):
 
     # Save the id_rsa aka private key
     with open(id_rsa, "w") as git_key:
-        git_key.write(config.get("git_out", "key"))
+        git_key.write(job_conf.get("git_out", "key"))
 
     # Fix private key permissions
     call("chmod 0600 " + id_rsa, shell=True, cwd=r"/tmp")
 
     # git@github.com:petersenna/smpl.git
-    git_url = config.get("git_out", "repo_url")
+    git_url = job_conf.get("git_out", "repo_url")
 
     # becomes: git@github.com
     git_server = git_url.split(":")[0]
@@ -129,22 +128,25 @@ def setup_git_out(config):
 def main():
     """ Good old main """
 
-    config = ConfigParser(interpolation=ExtendedInterpolation())
-    config.read("single_job_config")
+    job_conf = ConfigParser(interpolation=ExtendedInterpolation())
+    job_conf.read("job_conf")
 
-    # Basic check of the config file. Use update_config_check()
-    # if you change the config file layout
-    if check_config(config):
+    csp_conf = ConfigParser(interpolation=ExtendedInterpolation())
+    csp_conf.read("cloudspatch_conf")
+
+    # Basic check of the job_conf file. Use update_config_check()
+    # if you change the job_conf file layout
+    if check_job_config(job_conf):
         print("Aborting...")
         exit(1)
 
     # Step 1: Get the .cocci file and save it at /tmp
-    if get_cocci_file(config):
+    if get_cocci_file(csp_conf, job_conf):
         print("Could not download ${cocci:url}. Aborting...")
         exit(1)
 
     # Step 2: Configure the git_out repository for saving the results
-    if setup_git_out(config):
+    if setup_git_out(csp_conf, job_conf):
         print("Could not configure git based on ${git_out:repo_url}...")
         print("Aborting...")
         exit(1)

@@ -1,0 +1,5 @@
+[dir]
+tmp_dir: /tmp
+cocci_dl_dir: /tmp
+id_rsa_dir: /tmp
+git_out_dir: /tmp/git_out
