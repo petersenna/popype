@@ -3,8 +3,7 @@ FROM petersenna/coccinelle-linux-git
 
 RUN dnf -y install xz;dnf clean all
 
-RUN mkdir -p /usr/local/cloudspatch
-ADD ["cloudspatch.py", "/usr/local/cloudspatch/"]
-ADD ["cloudspatch_conf", "/usr/local/cloudspatch/"]
+ADD ["cloudspatch.py", "/"]
+ADD ["cloudspatch_conf", "/"]
 
-ENTRYPOINT ["/usr/local/cloudspatch/cloudspatch.py"]
+ENTRYPOINT ["/cloudspatch.py"]
