@@ -1,3 +1,5 @@
+# This file is not used yet. The idea is to make a tool to transform
+# this file into many job_conf files
 [labels]
 name: Feature Extraction
 version: 1.0.0 (October 6 2015)
@@ -5,8 +7,8 @@ owner: Peter Senna Tschudin <peter.senna@gmail.com>
 
 [servers]
 server: hp-peter.rsr.lip6.fr
-server: bossa.rsr.lip6.fr
-server: amd48-systeme.lip6.fr
+server: nova.rsr.lip6.fr
+server: bigiron.lip6.fr
 user: peter
 key: 
 -----BEGIN RSA PRIVATE KEY-----
