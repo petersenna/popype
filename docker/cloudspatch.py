@@ -9,7 +9,7 @@ __license__ = "GPLv2"
 __version__ = "Alpha"
 
 from configparser import ConfigParser, ExtendedInterpolation
-from subprocess import call
+from subprocess import call, check_output, Popen, PIPE
 import os, filecmp, shutil
 
 def check_job_config(job_conf):
@@ -49,8 +49,8 @@ def setup_git_out(csp_conf, job_conf):
     git_out_dir = csp_conf.get("dir", "git_out_dir")
 
     branch = job_conf.get("git_out", "branch")
-    result_file = git_out_dir + "/" + job_conf.get("git_out", "result_file")
-    result_dir = os.path.dirname(result_file)
+    out_file = git_out_dir + "/" + job_conf.get("git_out", "out_file")
+    result_dir = os.path.dirname(out_file)
 
     cocci_file = job_conf.get("cocci", "file")
 
@@ -130,27 +130,39 @@ def setup_git_in(csp_conf, job_conf):
     """Configure the code base that will run spatch"""
 
     linux_dir = csp_conf.get("dir", "linux_dir")
+    linux_git_config = linux_dir + "/.git/config"
+
     dl_dir = csp_conf.get("dir", "tmp_dir")
+    dl_git_config = dl_dir + "/config"
+
     config_url = job_conf.get("git_in", "config_url")
     checkout = job_conf.get("git_in", "checkout")
 
-    ret = call("curl -s " + config_url + " > " + dl_dir + "/config",
+    ret = call("curl -s " + config_url + " > " + dl_git_config,
                shell=True, cwd=r"/tmp")
     if ret != 0:
         print("Could not download the config file for the git repository")
         return -1
 
-    if not filecmp.cmp(dl_dir + "/config", linux_dir + "/.git/config"):
+    linux_git_config_exist = os.path.exists(linux_git_config)
+    if linux_git_config_exist:
+        git_configs_match = filecmp.cmp(dl_git_config, linux_git_config)
+
+    if not linux_git_config_exist:
+        os.makedirs(os.path.dirname(linux_git_config))
+
+    if linux_git_config_exist and not git_configs_match:
         # Wrong config file, delete it all and start again
         shutil.rmtree(linux_dir)
-        os.makedirs(linux_dir + "/.git")
-        call("cp " + dl_dir + "/config " + linux_dir + "/.git",
-             shell=True, cwd=r"/tmp")
-        call("git init .", shell=True, cwd=linux_dir)
+        os.makedirs(os.path.dirname(linux_git_config))
+
+    call("cp -f " + dl_git_config + " " + linux_git_config,
+         shell=True, cwd=r"/tmp")
+    call("git init .", shell=True, cwd=linux_dir)
 
     ret = call("git remote update", shell=True, cwd=linux_dir)
     if ret != 0:
-        print ("Could not update remotes. Network ok? .git/config ok?")
+        print("Could not update remotes. Network ok? .git/config ok?")
         return -1
 
     # git reset --hard; git clean -f -x -d; git checkout ...
@@ -158,11 +170,61 @@ def setup_git_in(csp_conf, job_conf):
     call("git clean -f -x -d", shell=True, cwd=linux_dir)
     ret = call("git checkout " + checkout, shell=True, cwd=linux_dir)
     if ret != 0:
-        print ("Could not checkout. Something is wrong...")
+        print("Could not checkout. Something is wrong...")
         return -1
 
     return 0
 
+def run_spatch_and_commit(csp_conf, job_conf):
+    """Run spatch and commit stdout and stderr to the git repository"""
+
+    nproc = int(check_output(["nproc"]))
+
+    cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" +\
+                 job_conf.get("cocci", "file")
+
+    cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts")
+    git_out_dir = csp_conf.get("dir", "git_out_dir")
+    out_file = git_out_dir + "/" + job_conf.get("git_out", "out_file")
+    err_file = git_out_dir + "/" + job_conf.get("git_out", "err_file")
+    linux_dir = csp_conf.get("dir", "linux_dir")
+
+
+    # Watch for spaces on string borders, it is needed!
+    cmd = "spatch " + cocci_opts + " " + cocci_file + " -dir ."
+    print("spatch will run now. Don't expect any output...")
+    print("$ cd " + linux_dir + "; " + cmd)
+    spatch = Popen(cmd, cwd=linux_dir, shell=True, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = spatch.communicate()
+
+    # Pipes make things binary things
+    stdout = stdout.decode("ascii")
+    stderr = stderr.decode("ascii")
+
+    print(stderr)
+    print("spatch exited with code " + str(spatch.returncode))
+
+    with open(err_file, "w") as err_fp:
+        err_fp.write(stderr)
+
+    if stdout:
+        with open(out_file, "w") as out_fp:
+            out_fp.write(stdout)
+    else:
+        print("stdout is empty, not commiting anything to git_out...")
+
+    call("git add " + out_file + " " + err_file, shell=True, cwd=git_out_dir)
+    ret = call("git commit -m \"$(date)\"", shell=True, cwd=git_out_dir)
+    if ret != 0:
+        print("git commit to git_out failed! Aborting")
+        return -1
+
+    ret = call("git push", shell=True, cwd=git_out_dir)
+    if ret != 0:
+        print("git push to git_out failed! Aborting")
+        return -1
+
+    return spatch.returncode
 
 def main():
     """ Good old main """
@@ -199,9 +261,12 @@ def main():
         print("Aborting...")
         exit(1)
 
-    #for sec in config.sections():
-        #for key in config[sec]:
-            #print(sec, key, config.get(sec, key))
+    # Step 4: Run spatch
+    if run_spatch_and_commit(csp_conf, job_conf):
+        print("Something went wrong when running spatch.")
+        exit(1)
+
+    return 0
 
 if __name__ == '__main__':
     main()

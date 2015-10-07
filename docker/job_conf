@@ -4,8 +4,8 @@ author: Peter Senna Tschcudin
 email: peter.senna@gmail.com
 
 [cocci]
-file: cont_lines.cocci
-url: https://raw.githubusercontent.com/petersenna/smpl/master/${file}
+file: test7.cocci
+url: https://raw.githubusercontent.com/petersenna/rc/master/${file}
 opts: --timeout 500 --all-includes --recursive-includes
 
 [git_out]
@@ -14,7 +14,11 @@ branch: ${com:name}
 
 # Do not change this without updating the source code. It is
 # important that the ${cocci:file} is part of the path
-result_file: ${com:name}/${cocci:file}/${git_in:checkout}.out.xz
+out_file: ${com:name}/${cocci:file}/${git_in:checkout}.out
+err_file: ${com:name}/${cocci:file}/${git_in:checkout}.err
+
+# Compress before commiting to git, valid values: xz, no
+compress: xz
 
 # Paste your private key here and add at least one leading space to each line
 key: -----BEGIN RSA PRIVATE KEY-----
@@ -46,5 +50,5 @@ key: -----BEGIN RSA PRIVATE KEY-----
  -----END RSA PRIVATE KEY-----
 
 [git_in]
-checkout: v2.6.13
+checkout: v4.0
 config_url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
