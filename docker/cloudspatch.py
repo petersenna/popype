@@ -11,6 +11,7 @@ __version__ = "Alpha"
 from configparser import ConfigParser, ExtendedInterpolation
 from subprocess import call
 import os
+import time
 
 def check_job_config(job_conf):
     """ Check if the configuration file has the minimum parameters"""
@@ -77,9 +78,7 @@ def setup_git_out(csp_conf, job_conf):
     # to check the authenticity of git_server
     ret = call("/usr/bin/ssh -o StrictHostKeyChecking=no " + git_server,
                shell=True, cwd=r"/tmp")
-    if ret == 1:
-        ret = 0
-    else:
+    if ret != 1:
         print("Problem? I'll go on and try to clone $(gitout_repo_url)")
 
     # Create a directory for using as output
@@ -90,6 +89,7 @@ def setup_git_out(csp_conf, job_conf):
     ret = call("git clone " + git_url + " .", shell=True, cwd=git_out_dir)
     if ret != 0:
         print("git clone " + git_url + " did not work.")
+        return -1
 
     # Our branch: check if it exists, if not create it
     # Also create the directory tree and copy the cocci file
@@ -102,11 +102,14 @@ def setup_git_out(csp_conf, job_conf):
         call("git checkout -b " + branch, shell=True, cwd=git_out_dir)
         call("git push origin " + branch, shell=True, cwd=git_out_dir)
 
-    # The branch does not exist
+    # The branch already exist
     else:
         call("git checkout remotes/origin/" + branch,
              shell=True, cwd=git_out_dir)
         call("git checkout -b " + branch, shell=True, cwd=git_out_dir)
+
+    # Track the remote branch
+    call("git branch -u origin/" + branch, shell=True, cwd=git_out_dir)
 
     if not os.path.isdir(result_dir):
         # Create the result directory
@@ -117,30 +120,49 @@ def setup_git_out(csp_conf, job_conf):
              shell=True, cwd=git_out_dir)
         call("git add " + result_dir + "/" + cocci_file,
              shell=True, cwd=git_out_dir)
-        call("git commit -m '$(date)'", shell=True, cwd=git_out_dir)
+        call("git commit -m \"$(date)\"", shell=True, cwd=git_out_dir)
 
         # Push the commit to the remote
-        ret = call("git push --set-upstream origin  " + branch,
-                   shell=True, cwd=git_out_dir)
+        ret = call("git push", shell=True, cwd=git_out_dir)
 
-    return ret
+    return 0
+
+def setup_git_in(csp_conf, job_conf):
+    """Configure the code base that will run spatch"""
+
+    linux_dir = csp_conf.get("dir", "linux_dir")
+    dl_dir = csp_conf.get("dir", "tmp_dir")
+    config_url = job_conf.get("git_in", "config_url")
+    checkout = job_conf.get("git_in", "checkout")
+
+    ret = call("curl -s " + config_url + " > " + dl_dir + "/config",
+               shell=True, cwd=r"/tmp")
+    if ret != 0:
+        print("Could not download the config file for the git repository")
+        return -1
+
+    return 0
+
 
 def main():
     """ Good old main """
-
-    job_conf = ConfigParser(interpolation=ExtendedInterpolation())
-    job_conf.read("job_conf")
-
+    # This is configuration file for cloudspatch, with settings that
+    # apply to all jobs
     csp_conf = ConfigParser(interpolation=ExtendedInterpolation())
     csp_conf.read("cloudspatch_conf")
 
-    # Basic check of the job_conf file. Use update_config_check()
-    # if you change the job_conf file layout
+    # This is the configuration file describing an specific job.
+    job_conf = ConfigParser(interpolation=ExtendedInterpolation())
+    job_conf.read("job_conf")
+
+    # Basic check of the job_conf file. You can use update_config_check()
+    # if you change the conf file layout
     if check_job_config(job_conf):
         print("Aborting...")
         exit(1)
 
-    # Step 1: Get the .cocci file and save it at /tmp
+    # Step 1: Get the .cocci file and save it at
+    # csp_config("dir", "cocci_dl_dir")
     if get_cocci_file(csp_conf, job_conf):
         print("Could not download ${cocci:url}. Aborting...")
         exit(1)
@@ -148,6 +170,12 @@ def main():
     # Step 2: Configure the git_out repository for saving the results
     if setup_git_out(csp_conf, job_conf):
         print("Could not configure git based on ${git_out:repo_url}...")
+        print("Aborting...")
+        exit(1)
+
+    # Step 3: Configure the code base to run spatch at
+    if setup_git_in(csp_conf, job_conf):
+        print("Could not configure git based on ${git_in:config_url}...")
         print("Aborting...")
         exit(1)
 
