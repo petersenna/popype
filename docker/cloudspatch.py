@@ -188,7 +188,7 @@ def run_spatch_and_commit(csp_conf, job_conf):
     out_file = git_out_dir + "/" + job_conf.get("git_out", "out_file")
     err_file = git_out_dir + "/" + job_conf.get("git_out", "err_file")
     linux_dir = csp_conf.get("dir", "linux_dir")
-
+    compress = job_conf.get("git_out", "compress")
 
     # Watch for spaces on string borders, it is needed!
     cmd = "spatch " + cocci_opts + " " + cocci_file + " -dir ."
@@ -204,16 +204,28 @@ def run_spatch_and_commit(csp_conf, job_conf):
     print(stderr)
     print("spatch exited with code " + str(spatch.returncode))
 
-    with open(err_file, "w") as err_fp:
-        err_fp.write(stderr)
+    if stderr:
+        with open(err_file, "w") as err_fp:
+            err_fp.write(stderr)
+
+        if compress == "xz":
+            call("xz " + err_file, shell=True, cwd=git_out_dir)
+
+        call("git add " + err_file + "*", shell=True, cwd=git_out_dir)
+    else:
+        print("stderr is empty!")
 
     if stdout:
         with open(out_file, "w") as out_fp:
             out_fp.write(stdout)
-    else:
-        print("stdout is empty, not commiting anything to git_out...")
 
-    call("git add " + out_file + " " + err_file, shell=True, cwd=git_out_dir)
+        if compress == "xz":
+            call("xz " + out_file, shell=True, cwd=git_out_dir)
+
+        call("git add " + out_file + "*", shell=True, cwd=git_out_dir)
+    else:
+        print("stdout is empty!")
+
     ret = call("git commit -m \"$(date)\"", shell=True, cwd=git_out_dir)
     if ret != 0:
         print("git commit to git_out failed! Aborting")
