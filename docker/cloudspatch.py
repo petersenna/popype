@@ -30,6 +30,22 @@ def update_config_check(config):
     for sec in config.sections():
         print(sec + ": " + str(list(config[sec].keys())))
 
+def configure_git_env(csp_conf, job_conf):
+    """ Configure git author and E-mail for commiting"""
+
+    author = job_conf.get("com", "author")
+    email = job_conf.get("com", "email")
+
+    tmp_dir = csp_conf.get("dir", "tmp_dir")
+
+    print("configuring git user.name and git user.email...")
+    call("git config --global user.name \"" + author + "\"",
+         shell=True, cwd=tmp_dir)
+    call("git config --global user.email \"" + email + "\"",
+         shell=True, cwd=tmp_dir)
+
+    return 0
+
 def get_cocci_file(csp_conf, job_conf):
     """Download the cocci:file and save it at /tmp"""
 
@@ -255,25 +271,30 @@ def main():
         print("Aborting...")
         exit(1)
 
-    # Step 1: Get the .cocci file and save it at
+    # Step 1: Configure git environment variables
+    if configure_git_env(csp_conf, job_conf):
+        print("Could not configure git user and email for commiting...")
+        exit(1)
+
+    # Step 2: Get the .cocci file and save it at
     # csp_config("dir", "cocci_dl_dir")
     if get_cocci_file(csp_conf, job_conf):
         print("Could not download ${cocci:url}. Aborting...")
         exit(1)
 
-    # Step 2: Configure the git_out repository for saving the results
+    # Step 3: Configure the git_out repository for saving the results
     if setup_git_out(csp_conf, job_conf):
         print("Could not configure git based on ${git_out:repo_url}...")
         print("Aborting...")
         exit(1)
 
-    # Step 3: Configure the code base to run spatch at
+    # Step 4: Configure the code base to run spatch at
     if setup_git_in(csp_conf, job_conf):
         print("Could not configure git based on ${git_in:config_url}...")
         print("Aborting...")
         exit(1)
 
-    # Step 4: Run spatch
+    # Step 5: Run spatch
     if run_spatch_and_commit(csp_conf, job_conf):
         print("Something went wrong when running spatch.")
         exit(1)
