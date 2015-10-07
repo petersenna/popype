@@ -1,6 +1,6 @@
 [dir]
 tmp_dir: /tmp
 cocci_dl_dir: ${tmp_dir}
-id_rsa_dir: ${tmp_dir}
+id_rsa_dir: /root/.ssh
 git_out_dir: /git_out
 linux_dir: /linux

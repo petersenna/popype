@@ -43,6 +43,7 @@ def configure_git_env(csp_conf, job_conf):
          shell=True, cwd=tmp_dir)
     call("git config --global user.email \"" + email + "\"",
          shell=True, cwd=tmp_dir)
+    call("git config --global push.default simple", shell=True, cwd=tmp_dir)
 
     return 0
 
@@ -139,6 +140,11 @@ def setup_git_out(csp_conf, job_conf):
 
         # Push the commit to the remote
         ret = call("git push", shell=True, cwd=git_out_dir)
+
+    ret = call("git push --dry-run", shell=True, cwd=git_out_dir)
+    if ret != 0:
+        print("No write access to git_out...")
+        return -1
 
     return 0
 
@@ -260,6 +266,12 @@ def main():
     # apply to all jobs
     csp_conf = ConfigParser(interpolation=ExtendedInterpolation())
     csp_conf.read("cloudspatch_conf")
+
+    # Is there a job_conf file?
+    if not os.path.exists("job_conf"):
+        print("This is not suposed to do anything, you should specify a job.")
+        print("Create a job_conf file and create a new container FROM this one")
+        exit(1)
 
     # This is the configuration file describing an specific job.
     job_conf = ConfigParser(interpolation=ExtendedInterpolation())
