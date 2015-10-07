@@ -1,15 +1,15 @@
 [com]
 name: Feature_Extraction-1.0.0-2015-10-06
-author: Peter Senna Tschcudin
+author: Peter's Amazing Bot
 email: peter.senna@gmail.com
 
 [cocci]
-file: test7.cocci
-url: https://raw.githubusercontent.com/petersenna/rc/master/${file}
-opts: --timeout 500 --all-includes --recursive-includes
+file: e100_probe.cocci
+url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${file}
+opts: --timeout 500 --all-includes
 
 [git_out]
-repo_url: git@github.com:petersenna/smpl.git
+repo_url: git@github.com:petersenna/fake.git
 branch: ${com:name}
 
 # Do not change this without updating the source code. It is
