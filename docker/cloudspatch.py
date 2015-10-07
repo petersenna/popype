@@ -271,6 +271,8 @@ def main():
     if not os.path.exists("job_conf"):
         print("This is not suposed to do anything, you should specify a job.")
         print("Create a job_conf file and create a new container FROM this one")
+        print("Example job_conf:")
+        print("        github.com/petersenna/cloudspatch/tree/master/dev")
         exit(1)
 
     # This is the configuration file describing an specific job.
