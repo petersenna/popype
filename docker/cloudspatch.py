@@ -10,8 +10,7 @@ __version__ = "Alpha"
 
 from configparser import ConfigParser, ExtendedInterpolation
 from subprocess import call
-import os
-import time
+import os, filecmp, shutil
 
 def check_job_config(job_conf):
     """ Check if the configuration file has the minimum parameters"""
@@ -139,6 +138,27 @@ def setup_git_in(csp_conf, job_conf):
                shell=True, cwd=r"/tmp")
     if ret != 0:
         print("Could not download the config file for the git repository")
+        return -1
+
+    if not filecmp.cmp(dl_dir + "/config", linux_dir + "/.git/config"):
+        # Wrong config file, delete it all and start again
+        shutil.rmtree(linux_dir)
+        os.makedirs(linux_dir + "/.git")
+        call("cp " + dl_dir + "/config " + linux_dir + "/.git",
+             shell=True, cwd=r"/tmp")
+        call("git init .", shell=True, cwd=linux_dir)
+
+    ret = call("git remote update", shell=True, cwd=linux_dir)
+    if ret != 0:
+        print ("Could not update remotes. Network ok? .git/config ok?")
+        return -1
+
+    # git reset --hard; git clean -f -x -d; git checkout ...
+    call("git reset --hard", shell=True, cwd=linux_dir)
+    call("git clean -f -x -d", shell=True, cwd=linux_dir)
+    ret = call("git checkout " + checkout, shell=True, cwd=linux_dir)
+    if ret != 0:
+        print ("Could not checkout. Something is wrong...")
         return -1
 
     return 0
