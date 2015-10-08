@@ -12,11 +12,11 @@ email: peter.senna@gmail.com
 # file you paste here.
 
 name: e100_probe.cocci
-url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${name}
-#file: @@
-# @@
-# * e100_probe(...)
-# {...}
+#url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${name}
+file: @@
+ @@
+ * e100_probe(...)
+ {...}
 
 opts: --timeout 500 --all-includes
 
