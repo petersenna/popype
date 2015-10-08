@@ -4,51 +4,64 @@ author: Peter's Amazing Bot
 email: peter.senna@gmail.com
 
 [cocci]
-file: e100_probe.cocci
-url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${file}
+# The name is important. You should avoid using same name for different
+# semantic patches. Notice that the example url ends with: ${name}
+# You should try split the url this way when possible. For the semantic
+# patch you can use url or file. curl will download the url. The config
+# parser expect at least one leading space for each line of the cocci
+# file you paste here.
+
+name: e100_probe.cocci
+url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${name}
+#file: @@
+# @@
+# * e100_probe(...)
+# {...}
+
 opts: --timeout 500 --all-includes
 
 [git_out]
-repo_url: git@github.com:petersenna/fake.git
+repo_url: git@github.com:petersenna/rc.git
 branch: ${com:name}
 
 # Do not change this without updating the source code. It is
-# important that the ${cocci:file} is part of the path
-out_file: ${com:name}/${cocci:file}/${git_in:checkout}.out
-err_file: ${com:name}/${cocci:file}/${git_in:checkout}.err
+# important that the ${cocci:name} is part of the path
+out_file: ${com:name}/${cocci:name}/${git_in:checkout}.out
+err_file: ${com:name}/${cocci:name}/${git_in:checkout}.err
 
 # Compress before commiting to git, valid values: xz, no
 compress: xz
 
 # Paste your private key here and add at least one leading space to each line
 key: -----BEGIN RSA PRIVATE KEY-----
- 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
+ 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
  -----END RSA PRIVATE KEY-----
-
+ 
 [git_in]
 checkout: v4.0
 config_url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
+

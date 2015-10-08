@@ -48,12 +48,12 @@ def configure_git_env(csp_conf, job_conf):
     return 0
 
 def get_cocci_file(csp_conf, job_conf):
-    """Download the cocci:file and save it at /tmp"""
+    """Download the cocci:file and save it at dl_dir"""
 
     dl_dir = csp_conf.get("dir", "cocci_dl_dir")
     cocci_url = job_conf.get("cocci", "url")
-    cocci_file = job_conf.get("cocci", "file")
-    ret = call("curl -s " + cocci_url + " > " + dl_dir + "/" + cocci_file,
+    cocci_name = job_conf.get("cocci", "name")
+    ret = call("curl -s " + cocci_url + " > " + dl_dir + "/" + cocci_name,
                shell=True, cwd=r"/tmp")
 
     return ret
@@ -69,7 +69,8 @@ def setup_git_out(csp_conf, job_conf):
     out_file = git_out_dir + "/" + job_conf.get("git_out", "out_file")
     result_dir = os.path.dirname(out_file)
 
-    cocci_file = job_conf.get("cocci", "file")
+    cocci_name = job_conf.get("cocci", "name")
+    cocci_dl_dir = csp_conf.get("dir", "cocci_dl_dir")
 
     # Create ~/.ssh for id_rsa
     id_rsa_dir = os.path.dirname(id_rsa)
@@ -132,9 +133,9 @@ def setup_git_out(csp_conf, job_conf):
         os.makedirs(result_dir)
 
         # Copy and commit the cocci_file
-        call("cp /tmp/" + cocci_file + " " + result_dir,
+        call("cp " + cocci_dl_dir + "/" + cocci_name + " " + result_dir,
              shell=True, cwd=git_out_dir)
-        call("git add " + result_dir + "/" + cocci_file,
+        call("git add " + result_dir + "/" + cocci_name,
              shell=True, cwd=git_out_dir)
         call("git commit -m \"$(date)\"", shell=True, cwd=git_out_dir)
 
@@ -203,7 +204,7 @@ def run_spatch_and_commit(csp_conf, job_conf):
     nproc = int(check_output(["nproc"]))
 
     cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" +\
-                 job_conf.get("cocci", "file")
+                 job_conf.get("cocci", "name")
 
     cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts")
     git_out_dir = csp_conf.get("dir", "git_out_dir")
