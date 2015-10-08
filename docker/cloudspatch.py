@@ -238,8 +238,10 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
 
         if compress == "xz":
             call("xz " + err_file, shell=True, cwd=results_dir)
+            call("git add " + err_file + ".xz", shell=True, cwd=results_dir)
+        else:
+            call("git add " + err_file, shell=True, cwd=results_dir)
 
-        call("git add " + err_file + "*", shell=True, cwd=results_dir)
     else:
         print("stderr is empty!")
 
@@ -253,8 +255,10 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
 
         if compress == "xz":
             call("xz " + out_file, shell=True, cwd=results_dir)
+            call("git add " + out_file + ".xz", shell=True, cwd=results_dir)
+        else:
+            call("git add " + out_file, shell=True, cwd=results_dir)
 
-        call("git add " + out_file + "*", shell=True, cwd=results_dir)
     else:
         print("stdout is empty!")
 
