@@ -66,7 +66,7 @@ def get_cocci_file(csp_conf, job_conf):
         print("${cocci:file} not found")
 
     if (cocci_url and cocci_file) or (not cocci_url and not cocci_file):
-        print("$You should use {cocci:url} OR ${cocci:file} on job_config.")
+        print("You should use {cocci:url} OR ${cocci:file} on job_config.")
         return -1
 
     if cocci_url:
