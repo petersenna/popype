@@ -235,9 +235,11 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
     out_file = results_dir + "/stdout"
     err_file = results_dir + "/stderr"
 
-    # Delete compressed and uncompressed file before continuing
-    delete_files_if_exist([out_file, err_file, out_file + ".xz",
-                           err_file + ".xz"])
+    # Delete files before continuing
+    delete_files_if_exist([out_file, err_file])
+
+    if compress:
+        delete_files_if_exist([out_file + ".xz", err_file + ".xz"])
 
     if stderr:
         # Pipes make things binary things
