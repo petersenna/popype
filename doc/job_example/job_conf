@@ -22,7 +22,7 @@ file: @r1@
  @@
  print p[0].file, p[0].line
 
-opts: --timeout 500 --all-includes
+opts: --timeout 120 --no-includes
 
 [git_out]
 # cloudspatch will save the results in this git repository, so you need
