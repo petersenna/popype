@@ -75,8 +75,8 @@ key: -----BEGIN RSA PRIVATE KEY-----
 # config_url points to a git configuration file. The example file
 # includes the Linux kernel trees: linux, linux-next, linux-stable,
 # and linux-staging (at least when I wrote this). If you want to
-# use cloudspatch in a completely different project, consider doing
-# your custom version of the container coccinelle-linux-git
+# use cloudspatch in a completely different project, consider
+# creating your own version of the container coccinelle-linux-git
 config_url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
 
 # You can use anything that git checkout accept. You can specify one or
