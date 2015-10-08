@@ -8,7 +8,7 @@ __email__ = "peter.senna@gmail.com"
 __license__ = "GPLv2"
 __version__ = "Alpha"
 
-from configparser import ConfigParser, ExtendedInterpolation
+from configparser import ConfigParser, ExtendedInterpolation, NoOptionError
 from subprocess import call, check_output, Popen, PIPE
 import os, filecmp, shutil
 
@@ -51,12 +51,33 @@ def get_cocci_file(csp_conf, job_conf):
     """Download the cocci:file and save it at dl_dir"""
 
     dl_dir = csp_conf.get("dir", "cocci_dl_dir")
-    cocci_url = job_conf.get("cocci", "url")
     cocci_name = job_conf.get("cocci", "name")
-    ret = call("curl -s " + cocci_url + " > " + dl_dir + "/" + cocci_name,
-               shell=True, cwd=r"/tmp")
+    cocci_url = ""
+    cocci_file = ""
 
-    return ret
+    try:
+        cocci_url = job_conf.get("cocci", "url")
+    except NoOptionError:
+        print("${cocci:url} not found")
+
+    try:
+        cocci_file = job_conf.get("cocci", "file")
+    except NoOptionError:
+        print("${cocci:file} not found")
+
+    if (cocci_url and cocci_file) or (not cocci_url and not cocci_file):
+        print("$You should use {cocci:url} OR ${cocci:file} on job_config.")
+        return -1
+
+    if cocci_url:
+        return call("curl -s " + cocci_url + " > " + dl_dir + "/" + cocci_name,
+                    shell=True, cwd=r"/tmp")
+
+    if cocci_file:
+        with open(dl_dir + "/" + cocci_name, "w") as cocci_fp:
+            cocci_fp.write(cocci_file)
+
+        return 0
 
 def setup_git_out(csp_conf, job_conf):
     """Configure ssh access to git repository for saving the results"""
@@ -294,7 +315,7 @@ def main():
     # Step 2: Get the .cocci file and save it at
     # csp_config("dir", "cocci_dl_dir")
     if get_cocci_file(csp_conf, job_conf):
-        print("Could not download ${cocci:url}. Aborting...")
+        print("Could not get the .cocci file. Aborting...")
         exit(1)
 
     # Step 3: Configure the git_out repository for saving the results
