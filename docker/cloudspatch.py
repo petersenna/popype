@@ -296,19 +296,22 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
 def mk_results_dir(csp_conf, job_conf, checkout):
     """Create the directory for saving the results from spatch, and copy the
     .cocci file to it"""
+
     cocci_name = job_conf.get("cocci", "name")
 
     out_dir = csp_conf.get("dir", "git_out_dir") + "/" +\
-    job_conf.get("com", "name") + "/" +\
-    checkout + "/" + cocci_name.split(".")[0]
+              job_conf.get("com", "name") + "/" +\
+              checkout + "/" + cocci_name.split(".")[0]
+
+    cocci_dl_full_path = csp_conf.get("dir", "cocci_dl_dir") + "/" + cocci_name
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-        cocci_dl_dir = csp_conf.get("dir", "cocci_dl_dir")
-        ret = call("cp " + cocci_dl_dir + "/" + cocci_name + " " + out_dir,
-                   shell=True, cwd=out_dir)
-        if ret != 0:
-            print("Could not copy .cocci file to the destination dir")
+
+    ret = call("cp -f " + cocci_dl_full_path + " " + out_dir,
+               shell=True, cwd=out_dir)
+    if ret != 0:
+        print("Could not copy .cocci file to the destination dir")
 
     return out_dir
 
@@ -326,7 +329,7 @@ def handle_git_in_checkouts(csp_conf, job_conf):
         else:
             if run_spatch_and_commit(csp_conf, job_conf, checkout):
                 print("Something went wrong when running spatch.")
-                return -1
+                print("I'll try the next one...")
 
 
 def main():
