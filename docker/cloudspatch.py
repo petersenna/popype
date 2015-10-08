@@ -87,11 +87,6 @@ def setup_git_out(csp_conf, job_conf):
     git_out_dir = csp_conf.get("dir", "git_out_dir")
 
     branch = job_conf.get("git_out", "branch")
-    out_file = git_out_dir + "/" + job_conf.get("git_out", "out_file")
-    result_dir = os.path.dirname(out_file)
-
-    cocci_name = job_conf.get("cocci", "name")
-    cocci_dl_dir = csp_conf.get("dir", "cocci_dl_dir")
 
     # Create ~/.ssh for id_rsa
     id_rsa_dir = os.path.dirname(id_rsa)
@@ -119,9 +114,10 @@ def setup_git_out(csp_conf, job_conf):
     if ret != 1:
         print("Problem? I'll go on and try to clone $(gitout_repo_url)")
 
-    # Create a directory for using as output
-    if not os.path.isdir(git_out_dir):
-        os.makedirs(git_out_dir)
+    # This directory should not exist, delete if it is there
+    if os.path.exists(git_out_dir):
+        shutil.rmtree(git_out_dir)
+    os.makedirs(git_out_dir)
 
     # Finally clone the directory
     ret = call("git clone " + git_url + " .", shell=True, cwd=git_out_dir)
@@ -149,20 +145,6 @@ def setup_git_out(csp_conf, job_conf):
     # Track the remote branch
     call("git branch -u origin/" + branch, shell=True, cwd=git_out_dir)
 
-    if not os.path.isdir(result_dir):
-        # Create the result directory
-        os.makedirs(result_dir)
-
-        # Copy and commit the cocci_file
-        call("cp " + cocci_dl_dir + "/" + cocci_name + " " + result_dir,
-             shell=True, cwd=git_out_dir)
-        call("git add " + result_dir + "/" + cocci_name,
-             shell=True, cwd=git_out_dir)
-        call("git commit -m \"$(date)\"", shell=True, cwd=git_out_dir)
-
-        # Push the commit to the remote
-        ret = call("git push", shell=True, cwd=git_out_dir)
-
     ret = call("git push --dry-run", shell=True, cwd=git_out_dir)
     if ret != 0:
         print("No write access to git_out...")
@@ -170,7 +152,7 @@ def setup_git_out(csp_conf, job_conf):
 
     return 0
 
-def setup_git_in(csp_conf, job_conf):
+def setup_git_in(csp_conf, job_conf, checkout):
     """Configure the code base that will run spatch"""
 
     linux_dir = csp_conf.get("dir", "linux_dir")
@@ -180,7 +162,6 @@ def setup_git_in(csp_conf, job_conf):
     dl_git_config = dl_dir + "/config"
 
     config_url = job_conf.get("git_in", "config_url")
-    checkout = job_conf.get("git_in", "checkout")
 
     ret = call("curl -s " + config_url + " > " + dl_git_config,
                shell=True, cwd=r"/tmp")
@@ -219,19 +200,14 @@ def setup_git_in(csp_conf, job_conf):
 
     return 0
 
-def run_spatch_and_commit(csp_conf, job_conf):
+def run_spatch_and_commit(csp_conf, job_conf, checkout):
     """Run spatch and commit stdout and stderr to the git repository"""
 
     nproc = int(check_output(["nproc"]))
-
+    linux_dir = csp_conf.get("dir", "linux_dir")
     cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" +\
                  job_conf.get("cocci", "name")
-
     cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts")
-    git_out_dir = csp_conf.get("dir", "git_out_dir")
-    out_file = git_out_dir + "/" + job_conf.get("git_out", "out_file")
-    err_file = git_out_dir + "/" + job_conf.get("git_out", "err_file")
-    linux_dir = csp_conf.get("dir", "linux_dir")
     compress = job_conf.get("git_out", "compress")
 
     # Watch for spaces on string borders, it is needed!
@@ -241,46 +217,99 @@ def run_spatch_and_commit(csp_conf, job_conf):
     spatch = Popen(cmd, cwd=linux_dir, shell=True, stdout=PIPE, stderr=PIPE)
     stdout, stderr = spatch.communicate()
 
-    # Pipes make things binary things
-    stdout = stdout.decode("ascii")
-    stderr = stderr.decode("ascii")
+    # Do a git pull before doing any changes to git_out
+    ret = call("git pull", shell=True, cwd=csp_conf.get("dir", "git_out_dir"))
+    if ret != 0:
+        print("git pull to git_out failed! Aborting")
+        return -1
 
-    print(stderr)
-    print("spatch exited with code " + str(spatch.returncode))
+    # Delay the call to mk_results_dir as much as possible
+    results_dir = mk_results_dir(csp_conf, job_conf, checkout)
+    out_file = results_dir + "/stdout"
+    err_file = results_dir + "/stderr"
 
     if stderr:
+        # Pipes make things binary things
+        stderr = stderr.decode("ascii")
+        print(stderr)
+
         with open(err_file, "w") as err_fp:
             err_fp.write(stderr)
 
         if compress == "xz":
-            call("xz " + err_file, shell=True, cwd=git_out_dir)
+            call("xz " + err_file, shell=True, cwd=results_dir)
 
-        call("git add " + err_file + "*", shell=True, cwd=git_out_dir)
+        call("git add " + err_file + "*", shell=True, cwd=results_dir)
     else:
         print("stderr is empty!")
 
+    print("spatch exited with code " + str(spatch.returncode))
+
     if stdout:
+        # Pipes make things binary things
+        stdout = stdout.decode("ascii")
         with open(out_file, "w") as out_fp:
             out_fp.write(stdout)
 
         if compress == "xz":
-            call("xz " + out_file, shell=True, cwd=git_out_dir)
+            call("xz " + out_file, shell=True, cwd=results_dir)
 
-        call("git add " + out_file + "*", shell=True, cwd=git_out_dir)
+        call("git add " + out_file + "*", shell=True, cwd=results_dir)
     else:
         print("stdout is empty!")
 
-    ret = call("git commit -m \"$(date)\"", shell=True, cwd=git_out_dir)
+    # The cocci_file is already at results_dir, let's add
+    # it for commiting
+    call("git add " + job_conf.get("cocci", "name"),
+         shell=True, cwd=results_dir)
+
+    ret = call("git commit -m \"$(date)\"", shell=True, cwd=results_dir)
     if ret != 0:
         print("git commit to git_out failed! Aborting")
         return -1
 
-    ret = call("git push", shell=True, cwd=git_out_dir)
+    ret = call("git push", shell=True, cwd=results_dir)
     if ret != 0:
         print("git push to git_out failed! Aborting")
         return -1
 
     return spatch.returncode
+
+def mk_results_dir(csp_conf, job_conf, checkout):
+    """Create the directory for saving the results from spatch, and copy the
+    .cocci file to it"""
+    cocci_name = job_conf.get("cocci", "name")
+
+    out_dir = csp_conf.get("dir", "git_out_dir") + "/" +\
+    job_conf.get("com", "name") + "/" +\
+    checkout + "/" + cocci_name.split(".")[0]
+
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+        cocci_dl_dir = csp_conf.get("dir", "cocci_dl_dir")
+        ret = call("cp " + cocci_dl_dir + "/" + cocci_name + " " + out_dir,
+                   shell=True, cwd=out_dir)
+        if ret != 0:
+            print("Could not copy .cocci file to the destination dir")
+
+    return out_dir
+
+def handle_git_in_checkouts(csp_conf, job_conf):
+    """Run spatch in one or more git_in checkouts"""
+
+    all_checkouts = str.split(job_conf.get("git_in", "checkout"), ",")
+
+    for checkout in all_checkouts:
+        checkout = checkout.lstrip()
+        if setup_git_in(csp_conf, job_conf, checkout):
+            print("Could not configure git_in. Not running spatch.")
+            print("Aborting...")
+            continue
+        else:
+            if run_spatch_and_commit(csp_conf, job_conf, checkout):
+                print("Something went wrong when running spatch.")
+                return -1
+
 
 def main():
     """ Good old main """
@@ -324,15 +353,11 @@ def main():
         print("Aborting...")
         exit(1)
 
-    # Step 4: Configure the code base to run spatch at
-    if setup_git_in(csp_conf, job_conf):
-        print("Could not configure git based on ${git_in:config_url}...")
+    # Step 4: checkout, run spatch, and commit to git_out for each
+    # ${git_in:checkout}
+    if handle_git_in_checkouts(csp_conf, job_conf):
+        print("Could not run everything...")
         print("Aborting...")
-        exit(1)
-
-    # Step 5: Run spatch
-    if run_spatch_and_commit(csp_conf, job_conf):
-        print("Something went wrong when running spatch.")
         exit(1)
 
     return 0

@@ -1,38 +1,47 @@
 [com]
-name: Feature_Extraction-1.0.0-2015-10-06
+name: printks-2015-10-08
 author: Peter's Amazing Bot
 email: peter.senna@gmail.com
 
 [cocci]
 # The name is important. You should avoid using same name for different
-# semantic patches. Notice that the example url ends with: ${name}
-# You should try split the url this way when possible. For the semantic
-# patch you can use url or file. curl will download the url. The config
-# parser expect at least one leading space for each line of the cocci
-# file you paste here.
-
-name: e100_probe.cocci
+# semantic patches. Notice that the example url ends with: ${name}, you
+# should try to split the url this way when possible. curl download the
+# url. If you prefer to paste the semantic patch here keep in mind that
+# the config  parser expect at least one leading space for each line of
+# the cocci file.
+name: printk.cocci
 #url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${name}
-file: @@
+file: @r1@
+ position p;
  @@
- * e100_probe(...)
- {...}
+ printk(...)@p
+
+ @script:python@
+ p << r1.p;
+ @@
+ print p[0].file, p[0].line
 
 opts: --timeout 500 --all-includes
 
 [git_out]
-repo_url: git@github.com:petersenna/rc.git
+# cloudspatch will save the results in this git repository, so you need
+# write access, and cloudspatch only knows ssh authentication. The url
+# should be something like git@github.com:petersenna/fake.git
+repo_url: git@github.com:petersenna/fake.git
+
+# cloudspatch will push the results to this branch. Using ${com:name}
+# works very well for me
 branch: ${com:name}
 
-# Do not change this without updating the source code. It is
-# important that the ${cocci:name} is part of the path
-out_file: ${com:name}/${cocci:name}/${git_in:checkout}.out
-err_file: ${com:name}/${cocci:name}/${git_in:checkout}.err
-
-# Compress before commiting to git, valid values: xz, no
+# Compress stderr and stdout before committing to git, valid
+# values: xz, no
 compress: xz
 
-# Paste your private key here and add at least one leading space to each line
+# Paste your private key here keeping in mind that the config parser
+# expect at least one leading space for each line of your private
+# key. For github I use deploy keys instead of using my default ssh
+# key.
 key: -----BEGIN RSA PRIVATE KEY-----
  MIIEpAIBAAKCAQEA7SQQS+WTFO67OgZ1PGMo2fUtc81K2x/7gbz3Ln30bOuCbFLm
  +/oqToouhhLdd0o9Oe9JZ7m39LcIjl7tbZEQ2QxAHk/946vhrwUVBNX+fq6mwAGP
@@ -62,6 +71,19 @@ key: -----BEGIN RSA PRIVATE KEY-----
  -----END RSA PRIVATE KEY-----
  
 [git_in]
-checkout: v4.0
+# cloudspatch will checkout this git repository and run spatch in it.
+# config_url points to a git configuration file. The example file
+# includes the Linux kernel trees: linux, linux-next, linux-stable,
+# and linux-staging (at least when I wrote this). If you want to
+# use cloudspatch in a completely different project, consider doing
+# your custom version of the container coccinelle-linux-git
 config_url: https://raw.githubusercontent.com/petersenna/docker/master/coccinelle-linux-git/config
+
+# You can use anything that git checkout accept. You can specify one or
+# more 'checkouts' using a comma as separator. Each 'checkout' will be
+# processed independently with it's own output directory inside git_out.
+# If you want to get all major Linux kernel versions, try this:
+# $ git tag |egrep "^v2\.6\.[0-9]*$|^v[34]\.[0-9]*$"|awk '{printf("%s, ", $0)}'
+#
+checkout: v2.6.12, v2.6.15, v2.6.20, 2.6.25, v2.6.30, 2.6.35, v3.0, v3.10, v3.15, v3.5, v4.0, v4.2
 
