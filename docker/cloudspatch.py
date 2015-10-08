@@ -200,6 +200,13 @@ def setup_git_in(csp_conf, job_conf, checkout):
 
     return 0
 
+def delete_files_if_exist(files):
+    """Delete all files that on the list"""
+
+    for one_file in files:
+        if os.path.exists(one_file):
+            os.remove(one_file)
+
 def run_spatch_and_commit(csp_conf, job_conf, checkout):
     """Run spatch and commit stdout and stderr to the git repository"""
 
@@ -228,6 +235,10 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
     out_file = results_dir + "/stdout"
     err_file = results_dir + "/stderr"
 
+    # Delete compressed and uncompressed file before continuing
+    delete_files_if_exist([out_file, err_file, out_file + ".xz",
+                           err_file + ".xz"])
+
     if stderr:
         # Pipes make things binary things
         stderr = stderr.decode("ascii")
@@ -254,6 +265,7 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
             out_fp.write(stdout)
 
         if compress == "xz":
+
             call("xz " + out_file, shell=True, cwd=results_dir)
             call("git add " + out_file + ".xz", shell=True, cwd=results_dir)
         else:
