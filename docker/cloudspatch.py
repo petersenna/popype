@@ -225,7 +225,7 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
     stdout, stderr = spatch.communicate()
 
     # Do a git pull before doing any changes to git_out
-    ret = call("git pull", shell=True, cwd=csp_conf.get("dir", "git_out_dir"))
+    ret = call("git pull --no-edit", shell=True, cwd=csp_conf.get("dir", "git_out_dir"))
     if ret != 0:
         print("git pull to git_out failed! Aborting")
         return -1
@@ -267,7 +267,6 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
             out_fp.write(stdout)
 
         if compress == "xz":
-
             call("xz " + out_file, shell=True, cwd=results_dir)
             call("git add " + out_file + ".xz", shell=True, cwd=results_dir)
         else:
