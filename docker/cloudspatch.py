@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """ This is part of cloudspatch. It reads the configuration file,
-get the semantic patch, checkout the correct git repository, run
-spatch and commit the result to the output git repository"""
+get the semantic patch, do one or more checkouts on the correct
+git_in repository, run spatch and commit the result to the
+git_out repository. This is a proof of concept, and sensitive
+coders should not read the code."""
 
 __author__ = "Peter Senna Tschudin"
 __email__ = "peter.senna@gmail.com"
@@ -330,6 +332,27 @@ def handle_git_in_checkouts(csp_conf, job_conf):
                 print("Something went wrong when running spatch.")
                 print("I'll try the next one...")
 
+def get_pending_checkout(csp_conf, job_conf):
+    # Two files are used in the task directory for controlling tasks
+    # that are being processed and tasks that are concluded.
+    all_checkouts = str.split(job_conf.get("git_in", "checkout"), ",")
+    checkouts_done = {}
+    checkouts_running = {}
+
+
+def handle_git_in_checkouts_yeah(csp_conf, job_conf):
+    """Run spatch in one or more git_in checkouts, but check which checkouts
+    are being processed at the moment and which are already done"""
+
+    while checkout = get_pending_checkout(csp_conf, job_conf):
+        if setup_git_in(csp_conf, job_conf, checkout):
+            print("Could not configure git_in. Not running spatch.")
+            print("Aborting...")
+            continue
+        else:
+            if run_spatch_and_commit(csp_conf, job_conf, checkout):
+                print("Something went wrong when running spatch.")
+                print("I'll try the next one...")
 
 def main():
     """ Good old main """
