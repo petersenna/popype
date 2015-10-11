@@ -3,7 +3,7 @@
 get the semantic patch, do one or more checkouts on the correct
 git_in repository, run spatch and commit the result to the
 git_out repository. This is a proof of concept, and sensitive
-coders should not read the source.."""
+coders should not read the source."""
 
 __author__ = "Peter Senna Tschudin"
 __email__ = "peter.senna@gmail.com"
