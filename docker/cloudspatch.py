@@ -214,7 +214,14 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
     linux_dir = csp_conf.get("dir", "linux_dir")
     cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" +\
                  job_conf.get("cocci", "name")
-    cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts")
+
+    # Delay the call to mk_results_dir as much as possible,
+    # just call get_results_dir() here...
+    results_dir = get_results_dir(csp_conf, job_conf, checkout)
+
+    cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts") +\
+    " -D checkout=" + checkout + " -D results_dir=" + results_dir
+
     compress = job_conf.get("git_out", "compress")
 
     # Watch for spaces on string borders, it is needed!
@@ -292,15 +299,24 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
 
     return spatch.returncode
 
-def mk_results_dir(csp_conf, job_conf, checkout):
-    """Create the directory for saving the results from spatch, and copy the
-    .cocci file to it"""
+def get_results_dir(csp_conf, job_conf, checkout):
+    """what is the out_dir?"""
 
     cocci_name = job_conf.get("cocci", "name")
 
     out_dir = csp_conf.get("dir", "git_out_dir") + "/" +\
               job_conf.get("com", "name") + "/" +\
               checkout + "/" + cocci_name.split(".")[0]
+
+    return out_dir
+
+def mk_results_dir(csp_conf, job_conf, checkout):
+    """Create the directory for saving the results from spatch, and copy the
+    .cocci file to it"""
+
+    cocci_name = job_conf.get("cocci", "name")
+
+    out_dir = get_results_dir(csp_conf, job_conf, checkout)
 
     cocci_dl_full_path = csp_conf.get("dir", "cocci_dl_dir") + "/" + cocci_name
 
