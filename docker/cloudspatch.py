@@ -237,9 +237,8 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout, cocci_name):
     linux_dir = csp_conf.get("dir", "linux_dir")
     cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" + cocci_name
 
-    # Delay the call to mk_results_dir as much as possible,
-    # just call get_results_dir() here...
-    results_dir = get_results_dir(csp_conf, job_conf, checkout, cocci_name)
+    # Call the first time here
+    results_dir = mk_results_dir(csp_conf, job_conf, checkout, cocci_name)
 
     cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts") +\
     " -D checkout=" + checkout + " -D results_dir=" + results_dir
@@ -260,7 +259,7 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout, cocci_name):
         print("git pull to git_out failed! Aborting")
         return -1
 
-    # Delay the call to mk_results_dir as much as possible
+    # Yes, run it again!
     results_dir = mk_results_dir(csp_conf, job_conf, checkout, cocci_name)
     out_file = results_dir + "/stdout"
     err_file = results_dir + "/stderr"
@@ -364,7 +363,6 @@ def handle_git_in_checkouts(csp_conf, job_conf):
         else:
             for cocci_name in all_cocci_names:
                 cocci_name = cocci_name.lstrip()
-                print("handle", cocci_name)
                 if run_spatch_and_commit(csp_conf, job_conf, checkout,\
                         cocci_name):
                     print("Something went wrong when running spatch.")
