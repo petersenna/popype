@@ -1,26 +1,13 @@
 [com]
-name: printks-2015-10-08
+name: tests-2015-10-19
 author: Peter's Amazing Bot
 email: peter.senna@gmail.com
 
 [cocci]
-# The name is important. You should avoid using same name for different
-# semantic patches. Notice that the example url ends with: ${name}, you
-# should try to split the url this way when possible. curl download the
-# url. If you prefer to paste the semantic patch here keep in mind that
-# the config  parser expect at least one leading space for each line of
-# the cocci file.
-name: printk.cocci
-#url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/${name}
-file: @r1@
- position p;
- @@
- printk(...)@p
-
- @script:python@
- p << r1.p;
- @@
- print p[0].file, p[0].line
+# One base url and one or multiple file names. Even for a single file
+# you need to split url and file name between the two fields.
+url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/
+name: printk.cocci, pr_info.cocci, pr_warn.cocci
 
 opts: --timeout 120 --no-includes
 

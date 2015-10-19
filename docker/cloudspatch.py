@@ -47,37 +47,60 @@ def configure_git_env(csp_conf, job_conf):
 
     return 0
 
-def get_cocci_file(csp_conf, job_conf):
-    """Download the cocci:file and save it at dl_dir"""
+def get_cocci_files(csp_conf, job_conf):
+    """Download the cocci files and save it at dl_dir"""
 
     dl_dir = csp_conf.get("dir", "cocci_dl_dir")
-    cocci_name = job_conf.get("cocci", "name")
+    if dl_dir[-1] != "/":
+        dl_dir += "/"
+
+    all_cocci_name = ""
     cocci_url = ""
-    cocci_file = ""
+
+    try:
+        all_cocci_name = job_conf.get("cocci", "name")
+    except NoOptionError:
+        print("${cocci:name} not found")
+        return -1
 
     try:
         cocci_url = job_conf.get("cocci", "url")
     except NoOptionError:
         print("${cocci:url} not found")
-
-    try:
-        cocci_file = job_conf.get("cocci", "file")
-    except NoOptionError:
-        print("${cocci:file} not found")
-
-    if (cocci_url and cocci_file) or (not cocci_url and not cocci_file):
-        print("You should use {cocci:url} OR ${cocci:file} on job_config.")
         return -1
 
-    if cocci_url:
-        return call("curl -s " + cocci_url + " > " + dl_dir + "/" + cocci_name,
-                    shell=True, cwd=r"/tmp")
+    if cocci_url[-6:] == ".cocci":
+        print("Your $(cocci:url) is probably wrong as it is ending with .cocci")
+        print("If the download fails, check $(cocci:url) and $(cocci:name).")
 
-    if cocci_file:
-        with open(dl_dir + "/" + cocci_name, "w") as cocci_fp:
-            cocci_fp.write(cocci_file)
+    if cocci_url[-1] != "/":
+        cocci_url += "/"
 
-        return 0
+    all_cocci_names = str.split(all_cocci_name, ",")
+
+    for cocci_name in all_cocci_names:
+        cocci_name = cocci_name.lstrip()
+        ret = call("curl -s " + cocci_url + cocci_name + " > " + dl_dir +\
+                cocci_name, shell=True, cwd=r"/tmp")
+        if ret != 0:
+            print("Download of the .cocci file failed: " +\
+                    cocci_url + cocci_name)
+            return -1
+
+    # Pasting the .cocci file on the job_conf is not supported at this time
+    #try:
+    #    cocci_file = job_conf.get("cocci", "file")
+    #except NoOptionError:
+    #    print("${cocci:file} not found")
+    #
+    #if (cocci_url and cocci_file) or (not cocci_url and not cocci_file):
+    #    print("You should use {cocci:url} OR ${cocci:file} on job_config.")
+    #    return -1
+    #if cocci_file:
+    #    with open(dl_dir + "/" + cocci_name, "w") as cocci_fp:
+    #        cocci_fp.write(cocci_file)
+
+    return 0
 
 def setup_git_out(csp_conf, job_conf):
     """Configure ssh access to git repository for saving the results"""
@@ -207,17 +230,16 @@ def delete_files_if_exist(files):
         if os.path.exists(one_file):
             os.remove(one_file)
 
-def run_spatch_and_commit(csp_conf, job_conf, checkout):
+def run_spatch_and_commit(csp_conf, job_conf, checkout, cocci_name):
     """Run spatch and commit stdout and stderr to the git repository"""
 
     nproc = int(check_output(["nproc"]))
     linux_dir = csp_conf.get("dir", "linux_dir")
-    cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" +\
-                 job_conf.get("cocci", "name")
+    cocci_file = csp_conf.get("dir", "cocci_dl_dir") + "/" + cocci_name
 
     # Delay the call to mk_results_dir as much as possible,
     # just call get_results_dir() here...
-    results_dir = get_results_dir(csp_conf, job_conf, checkout)
+    results_dir = get_results_dir(csp_conf, job_conf, checkout, cocci_name)
 
     cocci_opts = "-j " + str(nproc) + " " + job_conf.get("cocci", "opts") +\
     " -D checkout=" + checkout + " -D results_dir=" + results_dir
@@ -232,13 +254,14 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
     stdout, stderr = spatch.communicate()
 
     # Do a git pull before doing any changes to git_out
-    ret = call("git pull --no-edit", shell=True, cwd=csp_conf.get("dir", "git_out_dir"))
+    ret = call("git pull --no-edit", shell=True,\
+            cwd=csp_conf.get("dir", "git_out_dir"))
     if ret != 0:
         print("git pull to git_out failed! Aborting")
         return -1
 
     # Delay the call to mk_results_dir as much as possible
-    results_dir = mk_results_dir(csp_conf, job_conf, checkout)
+    results_dir = mk_results_dir(csp_conf, job_conf, checkout, cocci_name)
     out_file = results_dir + "/stdout"
     err_file = results_dir + "/stderr"
 
@@ -284,8 +307,7 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
 
     # The cocci_file is already at results_dir, let's add
     # it for commiting
-    call("git add " + job_conf.get("cocci", "name"),
-         shell=True, cwd=results_dir)
+    call("git add " + cocci_name, shell=True, cwd=results_dir)
 
     ret = call("git commit -m \"$(date)\"", shell=True, cwd=results_dir)
     if ret != 0:
@@ -299,10 +321,8 @@ def run_spatch_and_commit(csp_conf, job_conf, checkout):
 
     return spatch.returncode
 
-def get_results_dir(csp_conf, job_conf, checkout):
+def get_results_dir(csp_conf, job_conf, checkout, cocci_name):
     """what is the out_dir?"""
-
-    cocci_name = job_conf.get("cocci", "name")
 
     out_dir = csp_conf.get("dir", "git_out_dir") + "/" +\
               job_conf.get("com", "name") + "/" +\
@@ -310,13 +330,11 @@ def get_results_dir(csp_conf, job_conf, checkout):
 
     return out_dir
 
-def mk_results_dir(csp_conf, job_conf, checkout):
+def mk_results_dir(csp_conf, job_conf, checkout, cocci_name):
     """Create the directory for saving the results from spatch, and copy the
     .cocci file to it"""
 
-    cocci_name = job_conf.get("cocci", "name")
-
-    out_dir = get_results_dir(csp_conf, job_conf, checkout)
+    out_dir = get_results_dir(csp_conf, job_conf, checkout, cocci_name)
 
     cocci_dl_full_path = csp_conf.get("dir", "cocci_dl_dir") + "/" + cocci_name
 
@@ -331,9 +349,11 @@ def mk_results_dir(csp_conf, job_conf, checkout):
     return out_dir
 
 def handle_git_in_checkouts(csp_conf, job_conf):
-    """Run spatch in one or more git_in checkouts"""
+    """Run spatch in one or more git_in checkouts for
+    one or more cocci_files"""
 
     all_checkouts = str.split(job_conf.get("git_in", "checkout"), ",")
+    all_cocci_names = str.split(job_conf.get("cocci", "name"), ",")
 
     for checkout in all_checkouts:
         checkout = checkout.lstrip()
@@ -342,9 +362,13 @@ def handle_git_in_checkouts(csp_conf, job_conf):
             print("Aborting...")
             continue
         else:
-            if run_spatch_and_commit(csp_conf, job_conf, checkout):
-                print("Something went wrong when running spatch.")
-                print("I'll try the next one...")
+            for cocci_name in all_cocci_names:
+                cocci_name = cocci_name.lstrip()
+                print("handle", cocci_name)
+                if run_spatch_and_commit(csp_conf, job_conf, checkout,\
+                        cocci_name):
+                    print("Something went wrong when running spatch.")
+                    print("I'll try the next one...")
 
 
 def main():
@@ -379,7 +403,7 @@ def main():
 
     # Step 2: Get the .cocci file and save it at
     # csp_config("dir", "cocci_dl_dir")
-    if get_cocci_file(csp_conf, job_conf):
+    if get_cocci_files(csp_conf, job_conf):
         print("Could not get the .cocci file. Aborting...")
         exit(1)
 
