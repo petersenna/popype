@@ -4,11 +4,23 @@ author: Peter's Amazing Bot
 email: peter.senna@gmail.com
 
 [cocci]
-# One base url and one or multiple file names. Even for a single file
-# you need to split url and file name between the two fields.
-url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/
+# url is optional. If url is not specified, the container will be created
+# with all .cocci files that are on the same directory of the Dockerfile
+#
+# cloudspatch can download .cocci files from an url, which is only the base url,
+# so for http://test.com/test.cocci:
+#     url: http://test.com 
+#     file: test.cocci
+#url: https://raw.githubusercontent.com/petersenna/cloudspatch/master/doc/job_example
+
+# You can specify one or multiple names, and the order of execution will match
+# the order of declaration.
+#
+# name is _not_ optional.
 name: printk.cocci, pr_info.cocci, pr_warn.cocci
 
+# This options will be used for all .cocci files. At the moment is not possible
+# To specify different options for different .cocci files
 opts: --timeout 120 --no-includes
 
 [git_out]
@@ -23,7 +35,7 @@ branch: ${com:name}
 
 # Compress stderr and stdout before committing to git, valid
 # values: xz, no
-compress: xz
+compress: no
 
 # Paste your private key here keeping in mind that the config parser
 # expect at least one leading space for each line of your private
@@ -70,7 +82,7 @@ config_url: https://raw.githubusercontent.com/petersenna/docker/master/coccinell
 # more 'checkouts' using a comma as separator. Each 'checkout' will be
 # processed independently with it's own output directory inside git_out.
 # If you want to get all major Linux kernel versions, try this:
-# $ git tag |egrep "^v2\.6\.[0-9]*$|^v[34]\.[0-9]*$"|awk '{printf("%s, ", $0)}'
+# $ git tag |egrep "^v2\.6\.[0-9]*$|^v[34]\.[0-9]*$"|sort -V|awk '{printf("%s, ", $0)}'
 #
 checkout: v2.6.12, v2.6.15, v2.6.20, v2.6.25, v2.6.30, v2.6.35, v3.0, v3.10, v3.15, v3.5, v4.0, v4.2
 

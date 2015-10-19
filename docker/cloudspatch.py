@@ -368,6 +368,16 @@ def handle_git_in_checkouts(csp_conf, job_conf):
                     print("Something went wrong when running spatch.")
                     print("I'll try the next one...")
 
+def check_job_url(csp_conf, job_conf):
+    """Checks if the user specified an url"""
+    try:
+        cocci_url = job_conf.get("cocci", "url")
+    except NoOptionError:
+        print("${cocci:url} not specifyed. I'll use local .cocci files...")
+        return False
+
+    return True
+
 
 def main():
     """ Good old main """
@@ -399,11 +409,12 @@ def main():
         print("Could not configure git user and email for commiting...")
         exit(1)
 
-    # Step 2: Get the .cocci file and save it at
-    # csp_config("dir", "cocci_dl_dir")
-    if get_cocci_files(csp_conf, job_conf):
-        print("Could not get the .cocci file. Aborting...")
-        exit(1)
+    # Step 2: Optional: If ${cocci:url} is defined download the .cocci files
+    # and save it at csp_config("dir", "cocci_dl_dir")
+    if check_job_url(csp_conf, job_conf):
+        if get_cocci_files(csp_conf, job_conf):
+            print("Could not get the .cocci file. Aborting...")
+            exit(1)
 
     # Step 3: Configure the git_out repository for saving the results
     if setup_git_out(csp_conf, job_conf):
