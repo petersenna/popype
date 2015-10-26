@@ -1,18 +1,31 @@
 #!/usr/bin/env python3
-""" This is part of cloudspatch. It reads the configuration file,
-get the semantic patch, do one or more checkouts on the correct
-git_in repository, run spatch and commit the result to the
-git_out repository. This is a proof of concept, and sensitive
-coders should not read the source."""
+""" Cloudspatch allows you to specify a pipeline of Coccinelle semantic patches
+and Python scripts to create code analysis and code transformation tools. It
+expects a git repositories to read code from, e.g. the Linux kernel, and it
+expects a git repository to write to. The pipeline and the git details are
+stored in a easy to write configuration file. This is under development,
+and sensitive persons should not read after this point."""
 
 __author__ = "Peter Senna Tschudin"
 __email__ = "peter.senna@gmail.com"
 __license__ = "GPLv2"
-__version__ = "Alpha"
+__version__ = "Alpha 2"
 
 from configparser import ConfigParser, ExtendedInterpolation, NoOptionError
 from subprocess import call, check_output, Popen, PIPE
 import os, filecmp, shutil
+
+
+class GitRepo:
+    """A git repository"""
+
+class Coccinelle:
+    """Coccinelle is a program matching and transformation engine which provides the
+    language SmPL (Semantic Patch Language) for specifying desired matches and
+    transformations in C code."""
+
+class Script:
+    """ """
 
 def check_job_config(job_conf):
     """ Check if the configuration file has the minimum parameters"""
