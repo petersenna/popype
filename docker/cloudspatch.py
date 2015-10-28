@@ -123,10 +123,9 @@ class TheJob:
                             [x.strip() for x in job_cocci_files]}
 
         # [script]
-        jc_script_files = self.job_conf.get("script", "script_files")
-        for script_file in jc_script_files.split(","):
-            script_file = script_file.strip()
-            self.script_files[script_file] = Script(script_file)
+        job_script_files = self.job_conf.get("script", "script_files").split(",")
+        self.script_files = {x: Script(x) for x in
+                             [x.strip() for x in job_script_files]}
 
         # [pipeline]
         self.pipeline = Pipeline(self.job_conf.get("pipeline", "pipeline"))
