@@ -123,116 +123,13 @@ class TheJob:
                             [x.strip() for x in job_cocci_files]}
 
         # [script]
-        job_script_files = self.job_conf.get("script", "script_files").split(",")
+        job_script_files = self.job_conf.get("script",
+                                             "script_files").split(",")
         self.script_files = {x: Script(x) for x in
                              [x.strip() for x in job_script_files]}
 
         # [pipeline]
         self.pipeline = Pipeline(self.job_conf.get("pipeline", "pipeline"))
-
-#class Cocci:
-#    """.cocci file on the pipeline"""
-#    def __init__(self):
-#
-#class Script:
-#    """script on the pipeline"""
-#    def __init__(self):
-#
-#class Pipeline:
-#    """An example pipeline:
-#
-#          step1.cocci|finalize1.py|step2.cocci|post.py
-#
-#          *.cocci apply the semantic patch on each checkout of linus.git
-#          *.py apply the script to stdout of previous semantic patch
-#             it will create one directory with the branch name: branch
-#                one directory for each checkout: v4.2
-#                   one directory for each stage of the pipeline: step1,
-#                   finalize1, step2, post
-#            branch/v4.2/{step1, finalize1, step2, post}
-#    Will also print the last stdout of the pipeline before exiting"""
-#
-#    def __init__(self):
-#        git_in = GitRepo()
-#        git_out = GitRepo()
-#        cocci_scripts = Cocci()
-#        scripts = Script()
-
-
-#def utopic_test():
-#
-#    pl = Pipeline()
-#
-#    # Pipeline.GitRepo accept an URL to a git config file
-#    pl.git_in = Pipeline.GitRepo("http://github.com/petersenna/cocci-linux-git/config")
-#    pl.git_in.checkout = """v2.6.12, v2.6.15, v2.6.20, v2.6.25, v2.6.30,
-#            v2.6.35, v3.0, v3.10, v3.15, v3.5, v4.0, v4.2"""
-#    # This would be nice!
-#    pl.git_in.checkout_regex = "^v2\.6\.[0-9]*$|^v[34]\.[0-9]*$"
-#
-#    # Pipeline.GitRepo accept an URL to a git repository
-#    pl.git_out = Pipeline.GitRepo("git@github.com:petersenna/fake.git")
-#    pl.git_out.ssh_key = """-----BEGIN RSA PRIVATE KEY-----
-#            MIIEpAIBAAKCAQEA7SQQS+WTFO67OgZ1PGMo2fUtc81K2x/7gbz3Ln30bOuCbFLm
-#            +/oqToouhhLdd0o9Oe9JZ7m39LcIjl7tbZEQ2QxAHk/946vhrwUVBNX+fq6mwAGP
-#            GcU3FEjL7JirAjv6rd61VHx/hxUFEdt+MZ57lxPKONRG8RxB43Uh2TtXxvSXrkLe
-#            8DXY5nTAQHHPaR6U0FsfzuhKSXE7OpXk4OqnbI14CCRsnav7XoB8XY2E7y5ju/Er
-#            MMoL7G5MSN4CgGQ71XFHmCNzOgw3dlEzxWOgLmYpy7iY/4PpYbtdpHMEAPqPz6YW
-#            cskSqg2GAoKY9XePPHNz2jNsFSB3riT/jQBFowIDAQABAoIBABc4LcRQsUseaQSw
-#            dzA3gVt+DzpEgqzb/9NfPlC2EoXLtZSHtYg8oYHZM9763+Z7RW1zyZs3axSyC0tt
-#            bhAJYT3vXiPZr0FopgtuEvXLQkUDMt6gCHP8hH0e96Ct/iiU2OHHabfhDNecLkfm
-#            Vv/ixbUwQd+4oU2gd68e2/aaQej//8kgqA0zVqxktXtDRcAWrrOnJ4x52mo+VoKi
-#            AEkgy5vwtC0tPqc9/GceKO2Brtudv7Q3B6JvTe8rlMHr9lUrHh7LINuWDiGlNx5T
-#            S+3YmlLtBTdk2Fir33KPGb3y99pfrCVFyBJhntBpW4HeMMrRYr88nJqSSP303HiS
-#            /ddMkJECgYEA/U8AC6ZqjvUqi1N2v9I0wQmUT6h6LpDX6dGBrseUzs5Vj2+WTWmH
-#            Wqooe/JuRtKfFyWpwepchjeaPcA/n8HoujkRWtiXSF8b4uqTJCgkGlDfN3WtRwKZ
-#            9Zq+euB3iLhEOXtE93mpL7d4EfrX/6Yhc+9SYYHOsuYEinf3jBJUwGsCgYEA76kW
-#            VhtDGHwQ4k5paEJwwdnFm7RG+gG8CR+nTcp2K7pUyYXynyoQdJ4PePOdc+qrA0Nj
-#            yCobAbfMwlDl3ZzLPjGHUGo3uRbivF5Tktwjyi7HDPgC8+/mUTEfvb3uFcesit9L
-#            FfNaKfUria70Qb3+y8SEiKnmwWR+P5NPyIWLfakCgYEA8kz8LSitqzumy4k2APzx
-#            C2m/XYc6AIr6jaWjF+2/UScbvs2thzUXjUlQ2mcmx0Y3eavEO0KT6KsNNl5MPeP9
-#            Wwy1piGibE7V3PQndaGUDzwmmOVOr6s0XDP+WomWrcgdMqLQcK0GgidMil5Y+SkP
-#            vNdDBRRnBMdztoRU3b63JSsCgYByXmOtZccoKRS5mqfMvGAo8i7ONkLkze0ZAYUK
-#            p4KrLXmGzihRcnZ14HQLyV4rUiKYJRG6FPXcZQUO+iIoFsoa/PHRG09KQbSkJfOG
-#            Ew31T0toUfa+yI5F0saN+tRiim45u4OOjxpJCZnkU5x2vx+XyEljGolnYvioiDk7
-#            vRcrOQKBgQCxaX/FDHoWL6ZMf+CqBwN7Sr0n2JXkVVQjpp7LZ2TQiB3L3TSoIAK4
-#            k9Wujr1dD5J0jZZy4/wIE9E/yVOF+EvizaOLiFaqXtgmAEXq9k9Cbq1V1z/IGMm+
-#            fMvZmIy+WPp/77d24/iCwnljKJ4XTNR25Bl8H8NKhTvaIIhlznrrcA==
-#            -----END RSA PRIVATE KEY-----"""
-#    pl.git_out.branch = "test-20151016"
-#    pl.git_out.author = "Peter Senna Tschudin"
-#    pl.git_out.email = "peter.senna@gmail.com"
-#
-#    # Pipeline.Cocci accept a file name or URL
-#    pl.log_in_if_cocci = Pipeline.Cocci("log_in_if.cocci")
-#    pl.log_in_if_cocci.opts = "--timeout 120"
-#    pl.log_in_if_cocci.compress = True
-#    pl.log_in_if_cocci.parallel = True
-#
-#    # Pipeline.Cocci accept a file name or URL
-#    pl.log_num_args_cocci = Pipeline.Cocci("log_num_args.cocci")
-#    pl.log_num_args_cocci.opts = "--timeout 120"
-#    pl.log_num_args_cocci.compress = True
-#    pl.log_num_args_cocci.parallel = True
-#
-#    # Pipeline.Cocci accept a file name or URL
-#    pl.log_f_call_cocci = Pipeline.Cocci("log_f_call.cocci")
-#    pl.log_f_call_cocci.opts = "--timeout 120"
-#    pl.log_f_call_cocci.compress = True
-#    pl.log_f_call_cocci.parallel = True
-#
-#    # Pipeline.Script accept a file name or URL
-#    pl.filter_by_num_args_sc = Pipeline.Script("filter_by_num_args.py")
-#    pl.filter_by_num_args_sc.compress = "gz"
-#
-#    # Pipeline.Script accept a file name or URL
-#    pl.count_f_calls_sc = Pipeline.Script("count_f_calls.py")
-#    pl.count_f_calls_sc.compress = "gz"
-#
-#    pl.run("""git_in: log_in_if_cocci | log_num_args_cocci |
-#            filter_by_num_args_sc | log_f_call_cocci |
-#            count_f_calls_sc > git_out""")
-#
 
 def main():
     """ Good old main """
