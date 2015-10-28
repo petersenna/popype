@@ -24,7 +24,7 @@ checkout: v2.6.11, v2.6.12, v2.6.13, v2.6.14, v2.6.15, v2.6.16, v2.6.17, v2.6.18
 # cloudspatch will save the results in this git repository, so you need
 # write access, and cloudspatch only knows ssh authentication. The url
 # should be something like git@github.com:petersenna/fake.git
-repo_url: git@github.com:petersenna/rc.git
+repo_url: git@github.com:petersenna/fake.git
 
 # cloudspatch will push the results to this branch. Using ${com:name}
 # works very well for me
@@ -66,6 +66,30 @@ key: -----BEGIN RSA PRIVATE KEY-----
  /ayTMajBqpx8yVvXn7PDd233MoRwqceOVh8hZcTggkNBZs3Rln+M
  -----END RSA PRIVATE KEY-----
  
+[cocci]
+# Default spatch options for all .cocci files
+cocci_def_opts: --timeout 120
+
+# Specify an url for downloading the .cocci files
+# cocci_files_baseurl: 
+# You can specify names for cocci_files separated by comma:
+cocci_files: log_f_names_from_if.cocci, log_f_args_count.cocci, log_f_calls.cocci
+
+# OR specify multiple cocci_file with arguments for spatch
+# cocci_file: log_f_names_from_if.cocci --timeout 120
+# cocci_file: log_f_args_count.cocci --timeout 120
+# cocci_file: log_f_calls.cocci --timeout 120
+
+[script]
+# Specify an url for downloading the scripts
+# script_files_baseurl:
+# You can specify names for script_files separated by comma:
+script_files: count_calls.py, filter_by_arg_count.py
+
+# OR specify multiple script_file with arguments for each script
+# script_file: count_calls.py --parallel
+# script_file: filter_by_arg_count.py --parallel
+
 [pipeline]
 # This is not like a pipe from Bash. Instead of doing stdout to stdin magic
 # using real, and in memory pipes, stdout and stderr are saved to disk, and
@@ -81,28 +105,4 @@ key: -----BEGIN RSA PRIVATE KEY-----
 #   pipeline: the pipeline defined in this file
 #   pipeidx:  number starting from 1 telling the current position on the
 #             pipeline
-
-# Default spatch options for all .cocci files
-cocci_def_opts: --timeout 120
-
-# Specify an url for downloading the .cocci files
-# cocci_files_baseurl: 
-# You can specify names for cocci_files separated by comma:
-cocci_files: log_f_names_from_if.cocci, log_f_args_count.cocci, log_f_calls.cocci
-
-# OR specify multiple cocci_file with arguments for spatch
-# cocci_file: log_f_names_from_if.cocci --timeout 120
-# cocci_file: log_f_args_count.cocci --timeout 120
-# cocci_file: log_f_calls.cocci --timeout 120
-
-# Specify an url for downloading the scripts
-# script_files_baseurl:
-# You can specify names for script_files separated by comma:
-script_files: count_calls.py, filter_by_arg_count.py
-
-# OR specify multiple script_file with arguments for each script
-# script_file: count_calls.py --parallel
-# script_file: filter_by_arg_count.py --parallel
-
 pipeline: log_f_names_from_if.cocci | log_f_args_count.cocci | filter_by_arg_count.py | log_f_calls.cocci | count_calls.py
-
