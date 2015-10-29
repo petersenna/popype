@@ -29,6 +29,8 @@ class GitRepo:
         self.compress = None
         self.branch_for_write = ""
         self.ssl_key = ""
+        self.author_name = ""
+        self.author_email = ""
 
         if isrepo:
             self.repo_url = repo_or_config
@@ -43,14 +45,6 @@ class GitRepo:
     def set_compression(self):
         """Should stdout and stderr be compressed before committing?"""
         self.compress = True
-
-    def set_branch(self, branch):
-        """Define the branch to use when writing to git"""
-        self.branch_for_write = branch
-
-    def set_ssl_key(self, key):
-        """Define the ssl key of your git repository when needed"""
-        self.ssl_key = key
 
 class Cocci:
     """A .cocci file"""
@@ -147,14 +141,15 @@ class TheJob:
         self.git_out = GitRepo(self.job_conf.get("git_out", "repo_url"),
                                isrepo=True)
         self.git_out.set_compression()
-        self.git_out.set_branch(self.job_conf.get("git_out", "branch"))
-        self.git_out.set_ssl_key(self.job_conf.get("git_out", "key"))
+        self.git_out.branch_for_write = self.job_conf.get("git_out", "branch")
+        self.git_out.ssl_key = self.job_conf.get("git_out", "key")
+        self.git_out.author_name = self.job_conf.get("com", "author")
+        self.git_out.author_email = self.job_conf.get("com", "email")
 
         # [cocci]
         self.cocci_def_opts = self.job_conf.get("cocci", "cocci_def_opts")
 
         job_cocci_files = self.job_conf.get("cocci", "cocci_files").split(",")
-
         self.cocci_files = {x: Cocci(x, self.cocci_def_opts) for x in
                             [x.strip() for x in job_cocci_files]}
 
