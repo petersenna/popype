@@ -19,16 +19,19 @@ import sys
 
 # Some ugly globals for configuration file names
 JOB_CONF = "job_conf"
-CSP_CONF = "cloudspatch_conf"
+CSP_CONF = "csp_conf"
+
 
 class GitRepo:
     """A git repository"""
 
     def __init__(self, repo_or_config, isrepo=False, isconfig=False):
+        self.path_on_disk = ""
         self.checkout_targets = []
         self.compress = None
         self.branch_for_write = ""
         self.ssl_key = ""
+        self.ssl_key_dir = ""
         self.author_name = ""
         self.author_email = ""
 
@@ -46,12 +49,39 @@ class GitRepo:
         """Should stdout and stderr be compressed before committing?"""
         self.compress = True
 
+    def run_clone_git(self):
+        """Return path and a list of commands. Each command will be executed in
+        the path"""
+
+        command_list =\
+            ["git config --global user.name \"" + self.author_name + "\"",
+             "git config --global user.email \"" + self.author_email + "\"",
+             "git config --global push.default simple"]
+
+        return self.path_on_disk, command_list
+
+    def run_config_git_env(self):
+        """Return path and a list of commands. Each command will be executed in
+        the path"""
+
+        command_list =\
+            ["git config --global user.name \"" + self.author_name + "\"",
+             "git config --global user.email \"" + self.author_email + "\"",
+             "git config --global push.default simple"]
+
+        return self.path_on_disk, command_list
+
 class Cocci:
     """A .cocci file"""
 
     def __init__(self, name, spatch_opts):
         self.name = name
         self.spatch_opts = spatch_opts
+
+    def __run(self):
+        """Return path and a list of commands. Each command will be executed in
+        the path"""
+        pass
 
 class Script:
     """A script"""
@@ -88,10 +118,9 @@ class TheJob:
         "    github.com/petersenna/cloudspatch/tree/master/Doc/job_example\n")
 
     def __init__(self):
-        self.job_conf = None
+        self.conf = None
         self.git_in = None
         self.git_out = None
-        self.cocci_def_opts = ""
         self.cocci_files = {}
         self.script_files = {}
         self.pipeline = None
@@ -102,14 +131,14 @@ class TheJob:
         """ Check if the configuration looks ok"""
 
         # Is there a job_conf file?
-        if len(self.job_conf) <= 1:
+        if len(self.conf) <= 2:
             print(self.no_config_message, file=sys.stderr)
             return False
 
         # Does the config file looks sane from far?
         problem = False
-        for section in ["com", "git_in", "git_out", "cocci", "pipeline"]:
-            if section not in self.job_conf.sections():
+        for section in ["dir", "com", "git_in", "git_out", "cocci", "pipeline"]:
+            if section not in self.conf.sections():
                 print("Section " + section + " not found in the config file.",
                       file=sys.stderr)
                 problem = True
@@ -122,57 +151,99 @@ class TheJob:
     def read_config(self):
         """Read the job configuration file"""
 
-        # Reading the configuration file
-        # This is the configuration file describing an specific job.
-        self.job_conf = ConfigParser(interpolation=ExtendedInterpolation())
-        self.job_conf.read(JOB_CONF)
+        # Reading the configuration files
+        self.conf = ConfigParser(interpolation=ExtendedInterpolation())
+        self.conf.read([CSP_CONF, JOB_CONF])
 
         if not self.is_config_ok():
             print(JOB_CONF + " error. Exiting...", file=sys.stderr)
             exit(1)
 
         # [git_in]
-        self.git_in = GitRepo(self.job_conf.get("git_in", "config_url"),
+        self.git_in = GitRepo(self.conf.get("git_in", "config_url"),
                               isconfig=True)
-        self.git_in.set_checkout(self.job_conf.get("git_in", "checkout"))
+        self.git_in.set_checkout(self.conf.get("git_in", "checkout"))
         #self.git_in.set_checkout("      catapimba_peter    ")
+        self.git_in.author_name = self.conf.get("com", "author")
+        self.git_in.author_email = self.conf.get("com", "email")
+        self.git_in.path_on_disk = self.conf.get("dir", "git_in_dir")
 
         # [git_out]
-        self.git_out = GitRepo(self.job_conf.get("git_out", "repo_url"),
+        self.git_out = GitRepo(self.conf.get("git_out", "repo_url"),
                                isrepo=True)
         self.git_out.set_compression()
-        self.git_out.branch_for_write = self.job_conf.get("git_out", "branch")
-        self.git_out.ssl_key = self.job_conf.get("git_out", "key")
-        self.git_out.author_name = self.job_conf.get("com", "author")
-        self.git_out.author_email = self.job_conf.get("com", "email")
+        self.git_out.branch_for_write = self.conf.get("git_out", "branch")
+        self.git_out.ssl_key = self.conf.get("git_out", "key")
+        self.git_out.author_name = self.conf.get("com", "author")
+        self.git_out.author_email = self.conf.get("com", "email")
+        self.git_out.path_on_disk = self.conf.get("dir", "git_out_dir")
 
         # [cocci]
-        self.cocci_def_opts = self.job_conf.get("cocci", "cocci_def_opts")
+        cocci_def_opts = self.conf.get("cocci", "cocci_def_opts")
 
-        job_cocci_files = self.job_conf.get("cocci", "cocci_files").split(",")
-        self.cocci_files = {x: Cocci(x, self.cocci_def_opts) for x in
+        job_cocci_files = self.conf.get("cocci", "cocci_files").split(",")
+        self.cocci_files = {x: Cocci(x, cocci_def_opts) for x in
                             [x.strip() for x in job_cocci_files]}
 
         # [script]
-        job_script_files = self.job_conf.get("script",
-                                             "script_files").split(",")
+        job_script_files = self.conf.get("script", "script_files").split(",")
         self.script_files = {x: Script(x) for x in
                              [x.strip() for x in job_script_files]}
 
         # [pipeline]
-        self.pipeline = Pipeline(self.job_conf.get("pipeline", "pipeline"))
+        self.pipeline = Pipeline(self.conf.get("pipeline", "pipeline"))
 
-class CloudSpatch:
-    """This class holds global configuration of CloudSpatch"""
-    def __init__(self):
-        self.cspatch_conf = ConfigParser(interpolation=ExtendedInterpolation())
-        self.cspatch_conf.read(CSP_CONF)
+class ExecEnvironment:
+    """ TheJob() has all important instances we will need during execution.
+    Let's run it then."""
+
+    def __init__(self, myjob):
+        self.myjob = myjob
+        self.exec_log = []
+        self.outdir = ""
+        self.indir = ""
+        self.checkout_idx = 0
+        self.pipeline_idx = 0
+
+    def initialize(self):
+        """Setup the execution environment"""
+        self.indir = self.myjob.git_in.path_on_disk
+
+        self.__run(self.myjob.git_out.run_setup())
+
+        self.outdir = self.myjob.git_out.path_on_disk
+
+    def pipeline(self):
+        """Run the commands on the pipeline for each git_in.checkin_target"""
+
+        for checkout in self.myjob.git_in.checkout_targets:
+            for stage in self.myjob.pipeline.pipeline_stages:
+                run_folder = self.myjob.git_out.get_pipe_run_dir(checkout,
+                                                                 stage.name)
+                ret_list = self.__run(stage.__run())
+                if ret_list.count(0) != len(ret_list):
+                    print("Something went wrong when running: " + stage.name +
+                          ". Ignoring the error...", file=sys.stderr)
+
+    def finalize(self):
+        """Do this before exiting..."""
+        pass
+
+    def __run(self, path, command_list, log=True):
+        """Run each command from command_list at path. The idea is that this is
+        called only from initialize, pipeline, and finalize. log controls if the
+        history of executed commands is saved at self.exec_log"""
+        ret_list = []
+        for command in command_list:
+            self.exec_log.append(path + ":" + command)
+            ret_list.append = call(command, shell=True, cwd=path)
+
+        return ret_list
+
+
 
 def main():
     """ Good old main """
-    # This is configuration file for cloudspatch, with settings that
-    # apply to all jobs
-    mycspatch = CloudSpatch()
 
     myjob = TheJob()
 
@@ -184,7 +255,6 @@ def main():
     print(myjob.git_out.branch_for_write)
     #print(myjob.git_out.ssl_key)
 
-    print(myjob.cocci_def_opts)
     for cocci_file in myjob.cocci_files.keys():
         print(cocci_file)
     for script_file in myjob.script_files.keys():
@@ -193,6 +263,13 @@ def main():
     print(myjob.pipeline.pipeline_str)
     print(myjob.pipeline.stage_count)
     print(myjob.pipeline.pipeline_stages)
+
+    print(myjob.git_in.author_name)
+    print(myjob.git_out.author_name)
+
+    print(myjob.git_in.path_on_disk)
+    print(myjob.git_out.path_on_disk)
+    print(myjob.git_out.configure_exec_env())
 
     return 0
 
