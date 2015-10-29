@@ -15,7 +15,11 @@ __version__ = "Alpha 2"
 #from subprocess import call, check_output, Popen, PIPE
 #import os, filecmp, shutil
 from configparser import ConfigParser, ExtendedInterpolation
-import os
+import sys
+
+# Some ugly globals for configuration file names
+JOB_CONF = "job_conf"
+CSP_CONF = "cloudspatch_conf"
 
 class GitRepo:
     """A git repository"""
@@ -82,6 +86,13 @@ class Pipeline:
 class TheJob:
     """Store the instances related to the job described on the job_conf file"""
 
+    no_config_message = (
+        "This is not suposed to do anything, you should specify a job.\n"
+        "Create a " + JOB_CONF + " file and create a new container FROM\n"
+        "this one. Example " + JOB_CONF + ":\n"
+        "\n"
+        "    github.com/petersenna/cloudspatch/tree/master/Doc/job_example\n")
+
     def __init__(self):
         self.job_conf = None
         self.git_in = None
@@ -93,13 +104,38 @@ class TheJob:
 
         self.read_config()
 
+    def is_config_ok(self):
+        """ Check if the configuration looks ok"""
+
+        # Is there a job_conf file?
+        if len(self.job_conf) <= 1:
+            print(self.no_config_message, file=sys.stderr)
+            return False
+
+        # Does the config file looks sane from far?
+        problem = False
+        for section in ["com", "git_in", "git_out", "cocci", "pipeline"]:
+            if section not in self.job_conf.sections():
+                print("Section " + section + " not found in the config file.",
+                      file=sys.stderr)
+                problem = True
+
+        if problem:
+            return False
+
+        return True
+
     def read_config(self):
         """Read the job configuration file"""
 
         # Reading the configuration file
         # This is the configuration file describing an specific job.
         self.job_conf = ConfigParser(interpolation=ExtendedInterpolation())
-        self.job_conf.read("job_conf")
+        self.job_conf.read(JOB_CONF)
+
+        if not self.is_config_ok():
+            print(JOB_CONF + " error. Exiting...", file=sys.stderr)
+            exit(1)
 
         # [git_in]
         self.git_in = GitRepo(self.job_conf.get("git_in", "config_url"),
@@ -131,20 +167,17 @@ class TheJob:
         # [pipeline]
         self.pipeline = Pipeline(self.job_conf.get("pipeline", "pipeline"))
 
+class CloudSpatch:
+    """This class holds global configuration of CloudSpatch"""
+    def __init__(self):
+        self.cspatch_conf = ConfigParser(interpolation=ExtendedInterpolation())
+        self.cspatch_conf.read(CSP_CONF)
+
 def main():
     """ Good old main """
     # This is configuration file for cloudspatch, with settings that
     # apply to all jobs
-    csp_conf = ConfigParser(interpolation=ExtendedInterpolation())
-    csp_conf.read("cloudspatch_conf")
-
-    # Is there a job_conf file?
-    if not os.path.exists("job_conf"):
-        print("This is not suposed to do anything, you should specify a job.")
-        print("Create a job_conf file and create a new container FROM this one")
-        print("Example job_conf:")
-        print("  github.com/petersenna/cloudspatch/tree/master/doc/job_example")
-        exit(1)
+    mycspatch = CloudSpatch()
 
     myjob = TheJob()
 
