@@ -13,17 +13,16 @@ __version__ = "Alpha 2"
 
 #from configparser import ConfigParser, ExtendedInterpolation, NoOptionError
 #from subprocess import call, check_output, Popen, PIPE
-#import os, filecmp, shutil
+import sys, os, filecmp, shutil
 from configparser import ConfigParser, ExtendedInterpolation
-import sys
 
-# Some ugly globals for configuration file names
+# Some ugly globals for names of configuration files
 JOB_CONF = "job_conf"
 CSP_CONF = "csp_conf"
 
-
-class GitRepo:
-    """A git repository"""
+class GitRepoConfig:
+    """Configuration of the Git repository, mostly from the configuration
+    files"""
 
     def __init__(self, repo_or_config, isrepo=False, isconfig=False):
         self.path_on_disk = ""
@@ -49,27 +48,107 @@ class GitRepo:
         """Should stdout and stderr be compressed before committing?"""
         self.compress = True
 
-    def run_clone_git(self):
-        """Return path and a list of commands. Each command will be executed in
-        the path"""
+class GitRepoState:
+    """ State of the repository, e.g.: Is it initialized? Is it checked out? To
+    which checkout target? """
 
+    def __init__(self, conf, exec_env):
+        self.conf = conf
+        self.exec_env = exec_env
+        self.run = self.exec_env.run
+        self.initialized = False
+        self.changes_to_commit = False
+        self.checkout_idx = None
+
+    def init(self):
+        """Run all initialization procedures"""
+
+        run_path = self.conf.path_on_disk
+
+        # Some global configurations
         command_list =\
-            ["git config --global user.name \"" + self.author_name + "\"",
-             "git config --global user.email \"" + self.author_email + "\"",
+            ["git config --global user.name \"" + self.conf.author_name + "\"",
+             "git config --global user.email \"" + self.conf.author_email + "\"",
              "git config --global push.default simple"]
 
-        return self.path_on_disk, command_list
+        self.run(run_path, command_list)
 
-    def run_config_git_env(self):
-        """Return path and a list of commands. Each command will be executed in
-        the path"""
+        # Repository can be defined by an url to a git config file or by an url
+        # to use in git clone
+        try:
+            self.conf.repo_url
+        except NameError:
+            self.init_by_config()
+        else:
+            self.init_by_url()
 
-        command_list =\
-            ["git config --global user.name \"" + self.author_name + "\"",
-             "git config --global user.email \"" + self.author_email + "\"",
-             "git config --global push.default simple"]
+    def init_by_url(self):
+        """Init a git repository from an url e.g. git clone url"""
+        pass
 
-        return self.path_on_disk, command_list
+    def init_by_config(self):
+        """Init a git repository from on a config file, aka .git/config"""
+
+        repo_path = self.conf.path_on_disk
+        config_file_path = repo_path + "/.git/config"
+
+        dl_config_file_path = self.exec_env.download(self.conf.config_url,
+                                                     "config")
+        # The git_in repo is probably already there
+        # Is there a git config file there?
+        if os.path.exists(config_file_path):
+            # Yes!
+            if filecmp.cmp(dl_config_file_path, config_file_path):
+                # Cool the two config files are the same
+                self.git_remote_update()
+                return
+
+        # If we got here it means that or the config file is not there or it is
+        # different. Best to do is to delete everything and start a new
+        # repository
+        if os.path.exists(config_file_path):
+            # Delete everything
+            shutil.rmtree(repo_path)
+
+        # Create /path/to/repo/.git
+        os.makedirs(os.path.dirname(config_file_path))
+
+        # Copy the config file
+        self.exec_env.cp(dl_config_file_path, config_file_path)
+
+        self.git_init()
+        self.git_remote_update()
+
+    def bad_checkout(self):
+        "This is a comment, not amethod"
+        # git reset --hard; git clean -f -x -d; git checkout ...
+        #call("git reset --hard", shell=True, cwd=linux_dir)
+        #call("git clean -f -x -d", shell=True, cwd=linux_dir)
+        #ret = call("git checkout " + checkout, shell=True, cwd=linux_dir)
+        #if ret != 0:
+        #    print("Could not checkout. Something is wrong...")
+        #    return -1
+        pass
+
+    def git_init(self):
+        """Guess what: do a git init"""
+        pass
+
+    def git_remote_update(self):
+        """Guess what: do a git remote update"""
+        pass
+
+class GitRepo:
+    """A git repository"""
+    def __init__(self, repo_or_config, isrepo=False, isconfig=False):
+        self.conf = GitRepoConfig(repo_or_config, isrepo, isconfig)
+        self.state = None
+
+    def set_state(self, exec_env):
+        """When an instance of GitRepo is created it is likely that there is no
+        execution state available. This is used to set the state given an
+        instance of ExecEnv()"""
+        self.state = GitRepoState(self.conf, exec_env)
 
 class Cocci:
     """A .cocci file"""
@@ -107,7 +186,7 @@ class Pipeline:
 
         self.stage_count = len(self.pipeline_stages)
 
-class TheJob:
+class JobConfig:
     """Store the instances related to the job described on the job_conf file"""
 
     no_config_message = (
@@ -117,13 +196,14 @@ class TheJob:
         "\n"
         "    github.com/petersenna/cloudspatch/tree/master/Doc/job_example\n")
 
-    def __init__(self):
+    def __init__(self, exec_env):
         self.conf = None
         self.git_in = None
         self.git_out = None
         self.cocci_files = {}
         self.script_files = {}
         self.pipeline = None
+        self.exec_env = exec_env
 
         self.read_config()
 
@@ -162,21 +242,21 @@ class TheJob:
         # [git_in]
         self.git_in = GitRepo(self.conf.get("git_in", "config_url"),
                               isconfig=True)
-        self.git_in.set_checkout(self.conf.get("git_in", "checkout"))
+        self.git_in.conf.set_checkout(self.conf.get("git_in", "checkout"))
         #self.git_in.set_checkout("      catapimba_peter    ")
-        self.git_in.author_name = self.conf.get("com", "author")
-        self.git_in.author_email = self.conf.get("com", "email")
-        self.git_in.path_on_disk = self.conf.get("dir", "git_in_dir")
+        self.git_in.conf.author_name = self.conf.get("com", "author")
+        self.git_in.conf.author_email = self.conf.get("com", "email")
+        self.git_in.conf.path_on_disk = self.conf.get("dir", "git_in_dir")
 
         # [git_out]
         self.git_out = GitRepo(self.conf.get("git_out", "repo_url"),
                                isrepo=True)
-        self.git_out.set_compression()
-        self.git_out.branch_for_write = self.conf.get("git_out", "branch")
-        self.git_out.ssl_key = self.conf.get("git_out", "key")
-        self.git_out.author_name = self.conf.get("com", "author")
-        self.git_out.author_email = self.conf.get("com", "email")
-        self.git_out.path_on_disk = self.conf.get("dir", "git_out_dir")
+        self.git_out.conf.set_compression()
+        self.git_out.conf.branch_for_write = self.conf.get("git_out", "branch")
+        self.git_out.conf.ssl_key = self.conf.get("git_out", "key")
+        self.git_out.conf.author_name = self.conf.get("com", "author")
+        self.git_out.conf.author_email = self.conf.get("com", "email")
+        self.git_out.conf.path_on_disk = self.conf.get("dir", "git_out_dir")
 
         # [cocci]
         cocci_def_opts = self.conf.get("cocci", "cocci_def_opts")
@@ -193,37 +273,23 @@ class TheJob:
         # [pipeline]
         self.pipeline = Pipeline(self.conf.get("pipeline", "pipeline"))
 
-class ExecEnvironment:
+class ExecEnv:
     """ TheJob() has all important instances we will need during execution.
     Let's run it then."""
 
-    def __init__(self, myjob):
-        self.myjob = myjob
+    def __init__(self):
         self.exec_log = []
         self.outdir = ""
         self.indir = ""
-        self.checkout_idx = 0
         self.pipeline_idx = 0
 
     def initialize(self):
         """Setup the execution environment"""
-        self.indir = self.myjob.git_in.path_on_disk
-
-        self.__run(self.myjob.git_out.run_setup())
-
-        self.outdir = self.myjob.git_out.path_on_disk
+        pass
 
     def pipeline(self):
         """Run the commands on the pipeline for each git_in.checkin_target"""
-
-        for checkout in self.myjob.git_in.checkout_targets:
-            for stage in self.myjob.pipeline.pipeline_stages:
-                run_folder = self.myjob.git_out.get_pipe_run_dir(checkout,
-                                                                 stage.name)
-                ret_list = self.__run(stage.__run())
-                if ret_list.count(0) != len(ret_list):
-                    print("Something went wrong when running: " + stage.name +
-                          ". Ignoring the error...", file=sys.stderr)
+        pass
 
     def finalize(self):
         """Do this before exiting..."""
@@ -235,8 +301,9 @@ class ExecEnvironment:
         history of executed commands is saved at self.exec_log"""
         ret_list = []
         for command in command_list:
-            self.exec_log.append(path + ":" + command)
-            ret_list.append = call(command, shell=True, cwd=path)
+            if log:
+                self.exec_log.append(path + ":" + command)
+            #ret_list.append = call(command, shell=True, cwd=path)
 
         return ret_list
 
@@ -245,31 +312,32 @@ class ExecEnvironment:
 def main():
     """ Good old main """
 
-    myjob = TheJob()
+    myexec_env = ExecEnv()
+    myjob_conf = JobConfig(myexec_env)
 
-    print(myjob.git_in.config_url)
-    print(myjob.git_in.checkout_targets)
-
-    print(myjob.git_out.repo_url)
-    print(myjob.git_out.compress)
-    print(myjob.git_out.branch_for_write)
-    #print(myjob.git_out.ssl_key)
-
-    for cocci_file in myjob.cocci_files.keys():
-        print(cocci_file)
-    for script_file in myjob.script_files.keys():
-        print(script_file)
-
-    print(myjob.pipeline.pipeline_str)
-    print(myjob.pipeline.stage_count)
-    print(myjob.pipeline.pipeline_stages)
-
-    print(myjob.git_in.author_name)
-    print(myjob.git_out.author_name)
-
-    print(myjob.git_in.path_on_disk)
-    print(myjob.git_out.path_on_disk)
-    print(myjob.git_out.configure_exec_env())
+#    print(myjob.git_in.config_url)
+#    print(myjob.git_in.checkout_targets)
+#
+#    print(myjob.git_out.repo_url)
+#    print(myjob.git_out.compress)
+#    print(myjob.git_out.branch_for_write)
+#    #print(myjob.git_out.ssl_key)
+#
+#    for cocci_file in myjob.cocci_files.keys():
+#        print(cocci_file)
+#    for script_file in myjob.script_files.keys():
+#        print(script_file)
+#
+#    print(myjob.pipeline.pipeline_str)
+#    print(myjob.pipeline.stage_count)
+#    print(myjob.pipeline.pipeline_stages)
+#
+#    print(myjob.git_in.author_name)
+#    print(myjob.git_out.author_name)
+#
+#    print(myjob.git_in.path_on_disk)
+#    print(myjob.git_out.path_on_disk)
+#    print(myjob.git_out.configure_exec_env())
 
     return 0
 
