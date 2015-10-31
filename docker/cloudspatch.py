@@ -75,13 +75,17 @@ class GitRepoState:
 
     def git_init(self):
         """Guess what: do a git init"""
-        pass
+
+        self.run(self.conf.repo_dir, "git init", iscritical=True)
+
     def git_push(self, opts):
         """Guess what: git push opts"""
         pass
+
     def git_remote_update(self):
         """Guess what: do a git remote update"""
-        pass
+
+        self.run(self.conf.repo_dir, "git remote update", iscritical=True)
 
     def isbranch(self, branch):
         """Return true if branch exist, False if not"""
@@ -127,15 +131,15 @@ class GitRepoState:
         # If we got here it means that or the config file is not there or it is
         # different. Best to do is to delete everything and start a new
         # repository
-        if os.path.exists(config_file_path):
-            # Delete everything
-            self.exec_env.rmtree(repo_path)
+        self.exec_env.rmtree(repo_path, iscritical=True)
 
         # Create /path/to/repo/.git
-        self.exec_env.makedirs(os.path.dirname(config_file_path))
+        self.exec_env.makedirs(os.path.dirname(config_file_path),
+                               iscritical=True)
 
         # Copy the config file
-        self.exec_env.cp(dl_config_file_path, config_file_path)
+        self.exec_env.copy(dl_config_file_path, config_file_path,
+                           iscritical=True)
 
         self.git_init()
         self.git_remote_update()
@@ -386,9 +390,11 @@ class ExecEnv:
     def __init__(self, enable_log):
         self.conf = None
         self.cwd = ""
+        self.dl_dir = ""
         self.hostname = ""
         self.log = Logger(enable_log)
         self.pipeline_idx = 0
+        self.tmp_dir = ""
 
         self.initialize()
 
@@ -400,21 +406,33 @@ class ExecEnv:
         stdout = stdout[:-1]
         return stdout
 
+    def copy(self, source, target, iscritical=False):
+        "Call cp -f"
+
+        # This is needed to check if the method was called before setconf()
+        if self.tmp_dir:
+            tmp = self.tmp_dir
+        else:
+            tmp = "/tmp"
+
+        cp_cmd = "cp -f " + source + " " + target
+
+        self.run(tmp, cp_cmd, iscritical)
+
     def download(self, url, filename, iscritical=False):
         """Download the url, save to download_dir/filename and return full path
         to the downloaded file"""
 
-        if not self.conf:
-            self.exit("Initialize " + self.__class__.__name__ +
-                      ".conf before calling the download method.")
+        if not self.dl_dir:
+            self.exit("Call " + self.__class__.__name__ +
+                      ".setconf() before calling the download method.")
 
-        dl_dir = self.conf.conf.get("dir", "dl_dir")
 
         dl_cmd = "curl -f -s " + url + " > " + filename
 
-        self.run(dl_dir, dl_cmd, iscritical)
+        self.run(self.dl_dir, dl_cmd, iscritical)
 
-        return dl_dir + "/" + filename
+        return self.dl_dir + "/" + filename
 
     def exit(self, msg):
         """Does everything needed before exiting such as saving the logs"""
@@ -437,9 +455,42 @@ class ExecEnv:
         self.hostname = self.check_output(["hostname"])
         self.log.hostname = self.hostname
 
+    def makedirs(self, path, iscritical=False):
+        """Call mkdir -p"""
+
+        # This is needed to check if the method was called before setconf()
+        if self.tmp_dir:
+            tmp = self.tmp_dir
+        else:
+            tmp = "/tmp"
+
+        mkdir_cmd = "mkdir -p " + path
+
+        if not path[0] != "/":
+            self.exit(mkdir_cmd + " Error: relative path not accepted")
+
+        self.run(tmp, mkdir_cmd, iscritical)
+
+
     def pipeline(self):
         """Run the commands on the pipeline for each git_in.checkin_target"""
         pass
+
+    def rmtree(self, path, iscritical=False):
+        """Remove a directory tree with rm -rf. Use with care!"""
+
+        # This is needed to check if the method was called before setconf()
+        if self.tmp_dir:
+            tmp = self.tmp_dir
+        else:
+            tmp = "/tmp"
+
+        rm_cmd = "rm -rf " + path
+
+        if not path[0] != "/":
+            self.exit(rm_cmd + " Error: relative path not accepted")
+
+        self.run(tmp, rm_cmd, iscritical)
 
     def run(self, cwd, command_list, iscritical=False):
         """Run the command_list and analyse the $? of each command. If
@@ -454,7 +505,7 @@ class ExecEnv:
         ret_list = self.__call(command_list)
 
         # Something wrong?
-        if ret_list.count(0) != len(ret_list):
+        if iscritical and ret_list.count(0) != len(ret_list):
             index = 0
             log_str = ""
             for ret in ret_list:
@@ -463,9 +514,14 @@ class ExecEnv:
                                " failed with $? = " + str(ret)
                 index += 1
 
-            if iscritical:
-                self.exit(log_str)
+            self.exit(log_str)
 
+    def setconf(self, conf):
+        "set self.conf and do some initializations"
+
+        self.conf = conf
+        self.tmp_dir = self.conf.conf.get("dir", "tmp_dir")
+        self.dl_dir = self.conf.conf.get("dir", "dl_dir")
 
     def __call(self, command_list):
         """Internal function that uses subprocess.call. This should not be used
@@ -496,9 +552,11 @@ def main():
     # This isn't the most elegant solution
     myexec = ExecEnv(enable_log=True)
     mycon = JobConfig(myexec)
-    myexec.conf = mycon
-    print(myexec.download("http://petersenna.com/files/notfound",
-                          "frampton", iscritical=True))
+    myexec.setconf(mycon)
+    #print(myexec.download("http://petersenna.com/files/notfound",
+    #                      "frampton", iscritical=True))
+
+    mycon.git_in.state.init_by_config()
 
     #print(myexec_env.hostname)
 
