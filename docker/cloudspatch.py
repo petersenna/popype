@@ -154,8 +154,7 @@ class GitRepoState:
 
         # Create ~/.ssh for id_rsa
         key_dir = os.path.dirname(key_path)
-        if not os.path.isdir(key_dir):
-            self.exec_env.makedirs(key_dir)
+        self.exec_env.makedirs(key_dir)
 
         # Save the id_rsa aka private key
         self.exec_env.echo(self.conf.ssl_key, key_path)
@@ -526,10 +525,8 @@ class ExecEnv:
     def __call(self, command_list):
         """Internal function that uses subprocess.call. This should not be used
         outside this class. Expect a list of strings to be executed.
-        Expects self.cwd to contain the dir in which each command will be
-        executed"""
+        Set self.cwd before calling this method."""
         ret_list = []
-
 
         for command in command_list:
             print("(cd " + self.cwd + ";" + command + ")")
@@ -542,9 +539,6 @@ class ExecEnv:
             ret_list.append(ret)
 
         return ret_list
-
-
-
 
 def main():
     """ Good old main """
