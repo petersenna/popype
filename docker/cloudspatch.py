@@ -11,28 +11,26 @@ __email__ = "peter.senna@gmail.com"
 __license__ = "GPLv2"
 __version__ = "Alpha 2"
 
-#from configparser import ConfigParser, ExtendedInterpolation, NoOptionError
-#from subprocess import call, check_output, Popen, PIPE
-import sys, os, filecmp, shutil
 from configparser import ConfigParser, ExtendedInterpolation
+import filecmp, os, shutil, sys, subprocess
 
 # Some ugly globals for names of configuration files
-JOB_CONF = "job_conf"
 CSP_CONF = "csp_conf"
+JOB_CONF = "job_conf"
 
 class GitRepoConfig:
     """Configuration of the Git repository, mostly from the configuration
     files"""
 
     def __init__(self, repo_or_config, isrepo=False, isconfig=False):
-        self.path_on_disk = ""
+        self.author_email = ""
+        self.author_name = ""
+        self.branch_for_write = ""
         self.checkout_targets = []
         self.compress = None
-        self.branch_for_write = ""
+        self.path_on_disk = ""
         self.ssl_key = ""
         self.ssl_key_path = ""
-        self.author_name = ""
-        self.author_email = ""
 
         if isrepo:
             self.repo_url = repo_or_config
@@ -53,31 +51,33 @@ class GitRepoState:
     which checkout target? """
 
     def __init__(self, conf, exec_env):
-        self.conf = conf
-        self.exec_env = exec_env
-        self.run = self.exec_env.run
-        self.initialized = False
         self.changes_to_commit = False
         self.checkout_idx = None
-
-    def git_clone(self):
-        """Guess what: git clone"""
-        pass
-
-    def git_push(self, opts):
-        """Guess what: git push opts"""
-        pass
+        self.conf = conf
+        self.exec_env = exec_env
+        self.initialized = False
+        self.run = self.exec_env.run
 
     def git_branch(self, opts):
         """Guess what: git branch opts"""
         pass
-
     def git_checkout(self, opts):
         """Guess what: git checkout opts"""
         pass
-
+    def git_clone(self):
+        """Guess what: git clone"""
+        pass
     def git_config(self, opts):
         """Guess what: git config opts"""
+        pass
+    def git_init(self):
+        """Guess what: do a git init"""
+        pass
+    def git_push(self, opts):
+        """Guess what: git push opts"""
+        pass
+    def git_remote_update(self):
+        """Guess what: do a git remote update"""
         pass
 
     def isbranch(self, branch):
@@ -101,6 +101,40 @@ class GitRepoState:
             self.init_by_config()
         else:
             self.init_by_url()
+
+
+    def init_by_config(self):
+        """Init a git repository from on a config file, aka .git/config"""
+
+        repo_path = self.conf.path_on_disk
+        config_file_path = repo_path + "/.git/config"
+
+        dl_config_file_path = self.exec_env.download(self.conf.config_url,
+                                                     "config")
+        # The git_in repo is probably already there
+        # Is there a git config file there?
+        if os.path.exists(config_file_path):
+            # Yes!
+            if filecmp.cmp(dl_config_file_path, config_file_path):
+                # Cool the two config files are the same
+                self.git_remote_update()
+                return
+
+        # If we got here it means that or the config file is not there or it is
+        # different. Best to do is to delete everything and start a new
+        # repository
+        if os.path.exists(config_file_path):
+            # Delete everything
+            self.exec_env.rmtree(repo_path)
+
+        # Create /path/to/repo/.git
+        self.exec_env.makedirs(os.path.dirname(config_file_path))
+
+        # Copy the config file
+        self.exec_env.cp(dl_config_file_path, config_file_path)
+
+        self.git_init()
+        self.git_remote_update()
 
     def init_by_url(self):
         """Init a git repository from an url e.g. git clone url"""
@@ -160,39 +194,6 @@ class GitRepoState:
 
         return 0
 
-    def init_by_config(self):
-        """Init a git repository from on a config file, aka .git/config"""
-
-        repo_path = self.conf.path_on_disk
-        config_file_path = repo_path + "/.git/config"
-
-        dl_config_file_path = self.exec_env.download(self.conf.config_url,
-                                                     "config")
-        # The git_in repo is probably already there
-        # Is there a git config file there?
-        if os.path.exists(config_file_path):
-            # Yes!
-            if filecmp.cmp(dl_config_file_path, config_file_path):
-                # Cool the two config files are the same
-                self.git_remote_update()
-                return
-
-        # If we got here it means that or the config file is not there or it is
-        # different. Best to do is to delete everything and start a new
-        # repository
-        if os.path.exists(config_file_path):
-            # Delete everything
-            self.exec_env.rmtree(repo_path)
-
-        # Create /path/to/repo/.git
-        self.exec_env.makedirs(os.path.dirname(config_file_path))
-
-        # Copy the config file
-        self.exec_env.cp(dl_config_file_path, config_file_path)
-
-        self.git_init()
-        self.git_remote_update()
-
     def bad_checkout(self):
         "This is a comment, not amethod"
         # git reset --hard; git clean -f -x -d; git checkout ...
@@ -204,13 +205,6 @@ class GitRepoState:
         #    return -1
         pass
 
-    def git_init(self):
-        """Guess what: do a git init"""
-        pass
-
-    def git_remote_update(self):
-        """Guess what: do a git remote update"""
-        pass
 
 class GitRepo:
     """A git repository"""
@@ -271,13 +265,13 @@ class JobConfig:
         "    github.com/petersenna/cloudspatch/tree/master/Doc/job_example\n")
 
     def __init__(self, exec_env):
+        self.cocci_files = {}
         self.conf = None
+        self.exec_env = exec_env
         self.git_in = None
         self.git_out = None
-        self.cocci_files = {}
-        self.script_files = {}
         self.pipeline = None
-        self.exec_env = exec_env
+        self.script_files = {}
 
         self.read_config()
 
@@ -353,22 +347,37 @@ class ExecEnv:
     """ TheJob() has all important instances we will need during execution.
     Let's run it then."""
 
-    def __init__(self):
+    def __init__(self, enable_log):
+        self.cwd = ""
+        self.enable_log = enable_log
         self.exec_log = []
-        self.outdir = ""
-        self.indir = ""
+        self.hostname = ""
         self.pipeline_idx = 0
+
+    def check_output(self, cmd):
+        """Run a command and return it's output"""
+        return subprocess.check_output([cmd], cwd=self.cwd)
 
     def initialize(self):
         """Setup the execution environment"""
-        pass
 
-    def pipeline(self):
-        """Run the commands on the pipeline for each git_in.checkin_target"""
-        pass
+        # Default to /tmp unitl better option is given
+        self.cwd = "/tmp"
+
+        self.hostname = self.check_output(["hostname"])
 
     def finalize(self):
         """Do this before exiting..."""
+        pass
+
+    def log(self, command):
+        """Log the execution to a list"""
+        if self.log:
+            date = self.check_output("date +%s")
+            self.exec_log.append(date + ":" + self.cwd + ":" + command)
+
+    def pipeline(self):
+        """Run the commands on the pipeline for each git_in.checkin_target"""
         pass
 
     def __run(self, path, command_list, log=True):
@@ -379,7 +388,7 @@ class ExecEnv:
         for command in command_list:
             if log:
                 self.exec_log.append(path + ":" + command)
-            #ret_list.append = call(command, shell=True, cwd=path)
+            ret_list.append = subprocess.call(command, shell=True, cwd=path)
 
         return ret_list
 
@@ -388,7 +397,7 @@ class ExecEnv:
 def main():
     """ Good old main """
 
-    myexec_env = ExecEnv()
+    myexec_env = ExecEnv(enable_log=True)
     myconf = JobConfig(myexec_env)
 
     print(myconf.git_in.conf.config_url)
