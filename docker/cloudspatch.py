@@ -466,7 +466,7 @@ class ExecEnv:
 
         mkdir_cmd = "mkdir -p " + path
 
-        if not path[0] != "/":
+        if path[0] != "/":
             self.exit(mkdir_cmd + " Error: relative path not accepted")
 
         self.run(tmp, mkdir_cmd, iscritical)
@@ -487,7 +487,7 @@ class ExecEnv:
 
         rm_cmd = "rm -rf " + path
 
-        if not path[0] != "/":
+        if path[0] != "/":
             self.exit(rm_cmd + " Error: relative path not accepted")
 
         self.run(tmp, rm_cmd, iscritical)
@@ -532,7 +532,7 @@ class ExecEnv:
 
 
         for command in command_list:
-            print("(" + command + ")")
+            print("(cd " + self.cwd + ";" + command + ")")
             ret = subprocess.call(command, shell=True, cwd=self.cwd)
             if ret:
                 self.log.log(self.cwd, command, ret)
