@@ -12,7 +12,7 @@ __license__ = "GPLv2"
 __version__ = "Alpha 2"
 
 from configparser import ConfigParser, ExtendedInterpolation
-import filecmp, os, shutil, sys, subprocess
+import filecmp, os, shutil, sys, subprocess, time
 
 # Some ugly globals for names of configuration files
 CSP_CONF = "csp_conf"
@@ -356,7 +356,19 @@ class ExecEnv:
 
     def check_output(self, cmd):
         """Run a command and return it's output"""
-        return subprocess.check_output([cmd], cwd=self.cwd)
+        self.log(cmd[0])
+        stdout = subprocess.check_output(cmd, shell=True, cwd=self.cwd)
+        stdout = stdout.decode()
+        stdout = stdout[:-1]
+        return stdout
+
+    def exit(self, msg):
+        """Does everything needed before exiting such as saving the logs"""
+
+        secs = str(time.time()).split(".")[0]
+        self.exec_log.append(secs + ":" +  msg + " Exiting...")
+        self.save_log()
+        exit(1)
 
     def initialize(self):
         """Setup the execution environment"""
@@ -370,27 +382,62 @@ class ExecEnv:
         """Do this before exiting..."""
         pass
 
-    def log(self, command):
+    def log(self, command, ret=""):
         """Log the execution to a list"""
-        if self.log:
-            date = self.check_output("date +%s")
-            self.exec_log.append(date + ":" + self.cwd + ":" + command)
+        if self.enable_log:
+            secs = str(time.time()).split(".")[0]
+            log_str = secs + ":" + self.hostname + ":" + self.cwd + ":" +\
+                      str(command)
+            if ret:
+                log_str += " ($? = " + str(ret) + ")"
+
+            self.exec_log.append(log_str)
 
     def pipeline(self):
         """Run the commands on the pipeline for each git_in.checkin_target"""
         pass
 
-    def __run(self, path, command_list, log=True):
-        """Run each command from command_list at path. The idea is that this is
-        called only from initialize, pipeline, and finalize. log controls if the
-        history of executed commands is saved at self.exec_log"""
+    def run(self, cwd, command_list, is_critical=False):
+        """Run the command_list and analyse the $? of each command. If
+        isCritical is true, and one of the commands fail, call self.exit()"""
+
+        self.cwd = cwd
+
+        ret_list = self.__call(command_list)
+
+        # Something wrong?
+        if ret_list.count(0) != len(ret_list):
+            index = 0
+            log_str = ""
+            for ret in ret_list:
+                if ret != 0:
+                    log_str += "Running " + command_list[index] +\
+                               " failed with $? = " + str(ret)
+                index += 1
+
+            if is_critical:
+                self.exit(log_str)
+
+    def save_log(self):
+        """Save logs to I have no idea to where at this point"""
+        print(self.exec_log)
+
+    def __call(self, command_list):
+        """Internal function that uses subprocess.call. This should not be used
+        outside this class."""
         ret_list = []
         for command in command_list:
-            if log:
-                self.exec_log.append(path + ":" + command)
-            ret_list.append = subprocess.call(command, shell=True, cwd=path)
+            print("(" + command + ")")
+            ret = subprocess.call(command, shell=True, cwd=self.cwd)
+            if ret:
+                self.log(command, ret)
+            else:
+                self.log(command)
+
+            ret_list.append(ret)
 
         return ret_list
+
 
 
 
@@ -398,31 +445,38 @@ def main():
     """ Good old main """
 
     myexec_env = ExecEnv(enable_log=True)
-    myconf = JobConfig(myexec_env)
+    myexec_env.initialize()
+    print(myexec_env.hostname)
+    #print(myexec_env.exec_log)
+    myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
+    #print(myexec_env.exec_log)
+    #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"],
+    #               is_critical=True)
+    mycon = JobConfig(myexec_env)
 
-    print(myconf.git_in.conf.config_url)
-    print(myconf.git_in.conf.checkout_targets)
+    #print(myconf.git_in.conf.config_url)
+    #print(myconf.git_in.conf.checkout_targets)
 
-    print(myconf.git_out.conf.repo_url)
-    print(myconf.git_out.conf.compress)
-    print(myconf.git_out.conf.branch_for_write)
+    #print(myconf.git_out.conf.repo_url)
+    #print(myconf.git_out.conf.compress)
+    #print(myconf.git_out.conf.branch_for_write)
     #print(myconf.git_out.ssl_key)
 
-    for cocci_file in myconf.cocci_files.keys():
-        print(cocci_file)
-    for script_file in myconf.script_files.keys():
-        print(script_file)
+    #for cocci_file in myconf.cocci_files.keys():
+    #    print(cocci_file)
+    #for script_file in myconf.script_files.keys():
+    #    print(script_file)
 
-    print(myconf.pipeline.pipeline_str)
-    print(myconf.pipeline.stage_count)
-    print(myconf.pipeline.pipeline_stages)
+    #print(myconf.pipeline.pipeline_str)
+    #print(myconf.pipeline.stage_count)
+    #print(myconf.pipeline.pipeline_stages)
 
-    print(myconf.git_in.conf.author_name)
-    print(myconf.git_out.conf.author_name)
+    #print(myconf.git_in.conf.author_name)
+    #print(myconf.git_out.conf.author_name)
 
-    print(myconf.git_in.conf.path_on_disk)
-    print(myconf.git_out.conf.path_on_disk)
-    print(myconf.git_out.conf.ssl_key_path)
+    #print(myconf.git_in.conf.path_on_disk)
+    #print(myconf.git_out.conf.path_on_disk)
+    #print(myconf.git_out.conf.ssl_key_path)
 
     return 0
 
