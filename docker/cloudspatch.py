@@ -30,7 +30,7 @@ class GitRepoConfig:
         self.compress = None
         self.branch_for_write = ""
         self.ssl_key = ""
-        self.ssl_key_dir = ""
+        self.ssl_key_path = ""
         self.author_name = ""
         self.author_email = ""
 
@@ -60,18 +60,38 @@ class GitRepoState:
         self.changes_to_commit = False
         self.checkout_idx = None
 
+    def git_clone(self):
+        """Guess what: git clone"""
+        pass
+
+    def git_push(self, opts):
+        """Guess what: git push opts"""
+        pass
+
+    def git_branch(self, opts):
+        """Guess what: git branch opts"""
+        pass
+
+    def git_checkout(self, opts):
+        """Guess what: git checkout opts"""
+        pass
+
+    def git_config(self, opts):
+        """Guess what: git config opts"""
+        pass
+
+    def isbranch(self, branch):
+        """Return true if branch exist, False if not"""
+        pass
+
     def init(self):
         """Run all initialization procedures"""
 
-        run_path = self.conf.path_on_disk
-
         # Some global configurations
-        command_list =\
-            ["git config --global user.name \"" + self.conf.author_name + "\"",
-             "git config --global user.email \"" + self.conf.author_email + "\"",
-             "git config --global push.default simple"]
-
-        self.run(run_path, command_list)
+        self.git_config("--global user.name \"" + self.conf.author_name + "\"")
+        self.git_config("--global user.email \"" +
+                        self.conf.author_email + "\"")
+        self.git_config("--global push.default simple")
 
         # Repository can be defined by an url to a git config file or by an url
         # to use in git clone
@@ -84,7 +104,61 @@ class GitRepoState:
 
     def init_by_url(self):
         """Init a git repository from an url e.g. git clone url"""
-        pass
+
+        repo_url = self.conf.repo_url
+        repo_dir = self.conf.path_on_disk
+        key_path = self.conf.ssl_key_path
+        branch = self.conf.branch_for_write
+
+        # Create ~/.ssh for id_rsa
+        key_dir = os.path.dirname(key_path)
+        if not os.path.isdir(key_dir):
+            self.exec_env.makedirs(key_dir)
+
+        # Save the id_rsa aka private key
+        self.exec_env.echo(self.conf.ssl_key, key_path)
+
+        # Fix private key permissions
+        self.exec_env.chmod("0600", key_path)
+
+        # git@github.com:petersenna/smpl.git
+        #git_url = job_conf.get("git_out", "repo_url")
+        # becomes: git@github.com
+        #git_server = git_url.split(":")[0]
+        # Connect one time to create an entry at ~/.ssh/known_hosts.
+        # ssh thinks it failed but it didn't, the goal here is just
+        # to check the authenticity of git_server
+        #ret = call("/usr/bin/ssh -o StrictHostKeyChecking=no " + git_server,
+        #           shell=True, cwd=r"/tmp")
+        #if ret != 1:
+        #    print("Problem? I'll go on and try to clone $(gitout_repo_url)")
+        self.exec_env.ssh_handshake(repo_url)
+
+        # This directory should not exist, delete if it is there
+        if os.path.exists(repo_dir):
+            self.exec_env.rmtree(repo_dir)
+        self.exec_env.makedirs(repo_dir)
+
+        # Finally clone the directory
+        self.git_clone()
+
+        # Our branch: check if it exists, if not create it
+        # Also create the directory tree and copy the cocci file
+        if self.isbranch(branch):
+            self.git_checkout("remotes/origin/" + branch)
+            self.git_checkout("-b " + branch)
+        else:
+            self.git_checkout("-b " + branch)
+            self.git_push("origin " + branch)
+
+        # Track the remote branch
+        self.git_branch("-u origin/" + branch)
+
+        if not self.git_push("--dry-run"):
+            print("No write access to git_out...", file=sys.stderr)
+            exit(1)
+
+        return 0
 
     def init_by_config(self):
         """Init a git repository from on a config file, aka .git/config"""
@@ -108,10 +182,10 @@ class GitRepoState:
         # repository
         if os.path.exists(config_file_path):
             # Delete everything
-            shutil.rmtree(repo_path)
+            self.exec_env.rmtree(repo_path)
 
         # Create /path/to/repo/.git
-        os.makedirs(os.path.dirname(config_file_path))
+        self.exec_env.makedirs(os.path.dirname(config_file_path))
 
         # Copy the config file
         self.exec_env.cp(dl_config_file_path, config_file_path)
@@ -254,6 +328,8 @@ class JobConfig:
         self.git_out.conf.set_compression()
         self.git_out.conf.branch_for_write = self.conf.get("git_out", "branch")
         self.git_out.conf.ssl_key = self.conf.get("git_out", "key")
+        self.git_out.conf.ssl_key_path = self.conf.get("dir", "ssl_key_dir")
+        self.git_out.conf.ssl_key_path += "/id_rsa"
         self.git_out.conf.author_name = self.conf.get("com", "author")
         self.git_out.conf.author_email = self.conf.get("com", "email")
         self.git_out.conf.path_on_disk = self.conf.get("dir", "git_out_dir")
@@ -313,31 +389,31 @@ def main():
     """ Good old main """
 
     myexec_env = ExecEnv()
-    myjob_conf = JobConfig(myexec_env)
+    myconf = JobConfig(myexec_env)
 
-#    print(myjob.git_in.config_url)
-#    print(myjob.git_in.checkout_targets)
-#
-#    print(myjob.git_out.repo_url)
-#    print(myjob.git_out.compress)
-#    print(myjob.git_out.branch_for_write)
-#    #print(myjob.git_out.ssl_key)
-#
-#    for cocci_file in myjob.cocci_files.keys():
-#        print(cocci_file)
-#    for script_file in myjob.script_files.keys():
-#        print(script_file)
-#
-#    print(myjob.pipeline.pipeline_str)
-#    print(myjob.pipeline.stage_count)
-#    print(myjob.pipeline.pipeline_stages)
-#
-#    print(myjob.git_in.author_name)
-#    print(myjob.git_out.author_name)
-#
-#    print(myjob.git_in.path_on_disk)
-#    print(myjob.git_out.path_on_disk)
-#    print(myjob.git_out.configure_exec_env())
+    print(myconf.git_in.conf.config_url)
+    print(myconf.git_in.conf.checkout_targets)
+
+    print(myconf.git_out.conf.repo_url)
+    print(myconf.git_out.conf.compress)
+    print(myconf.git_out.conf.branch_for_write)
+    #print(myconf.git_out.ssl_key)
+
+    for cocci_file in myconf.cocci_files.keys():
+        print(cocci_file)
+    for script_file in myconf.script_files.keys():
+        print(script_file)
+
+    print(myconf.pipeline.pipeline_str)
+    print(myconf.pipeline.stage_count)
+    print(myconf.pipeline.pipeline_stages)
+
+    print(myconf.git_in.conf.author_name)
+    print(myconf.git_out.conf.author_name)
+
+    print(myconf.git_in.conf.path_on_disk)
+    print(myconf.git_out.conf.path_on_disk)
+    print(myconf.git_out.conf.ssl_key_path)
 
     return 0
 
