@@ -28,7 +28,7 @@ class GitRepoConfig:
         self.branch_for_write = ""
         self.checkout_targets = []
         self.compress = None
-        self.path_on_disk = ""
+        self.repo_dir = ""
         self.ssl_key = ""
         self.ssl_key_path = ""
 
@@ -67,9 +67,12 @@ class GitRepoState:
     def git_clone(self):
         """Guess what: git clone"""
         pass
+
     def git_config(self, opts):
         """Guess what: git config opts"""
-        pass
+
+        self.run(self.conf.repo_dir, "git config " + opts, iscritical=True)
+
     def git_init(self):
         """Guess what: do a git init"""
         pass
@@ -106,11 +109,12 @@ class GitRepoState:
     def init_by_config(self):
         """Init a git repository from on a config file, aka .git/config"""
 
-        repo_path = self.conf.path_on_disk
+        repo_path = self.conf.repo_dir
         config_file_path = repo_path + "/.git/config"
 
+        # Download the config file. Abort the entire execution if it fails
         dl_config_file_path = self.exec_env.download(self.conf.config_url,
-                                                     "config")
+                                                     "config", iscritical=True)
         # The git_in repo is probably already there
         # Is there a git config file there?
         if os.path.exists(config_file_path):
@@ -140,7 +144,7 @@ class GitRepoState:
         """Init a git repository from an url e.g. git clone url"""
 
         repo_url = self.conf.repo_url
-        repo_dir = self.conf.path_on_disk
+        repo_dir = self.conf.repo_dir
         key_path = self.conf.ssl_key_path
         branch = self.conf.branch_for_write
 
@@ -314,7 +318,8 @@ class JobConfig:
         #self.git_in.set_checkout("      catapimba_peter    ")
         self.git_in.conf.author_name = self.conf.get("com", "author")
         self.git_in.conf.author_email = self.conf.get("com", "email")
-        self.git_in.conf.path_on_disk = self.conf.get("dir", "git_in_dir")
+        self.git_in.conf.repo_dir = self.conf.get("dir", "git_in_dir")
+        self.git_in.set_state(self.exec_env)
 
         # [git_out]
         self.git_out = GitRepo(self.conf.get("git_out", "repo_url"),
@@ -326,7 +331,8 @@ class JobConfig:
         self.git_out.conf.ssl_key_path += "/id_rsa"
         self.git_out.conf.author_name = self.conf.get("com", "author")
         self.git_out.conf.author_email = self.conf.get("com", "email")
-        self.git_out.conf.path_on_disk = self.conf.get("dir", "git_out_dir")
+        self.git_out.conf.repo_dir = self.conf.get("dir", "git_out_dir")
+        self.git_out.set_state(self.exec_env)
 
         # [cocci]
         cocci_def_opts = self.conf.get("cocci", "cocci_def_opts")
@@ -343,32 +349,84 @@ class JobConfig:
         # [pipeline]
         self.pipeline = Pipeline(self.conf.get("pipeline", "pipeline"))
 
+class Logger:
+    """This class does logging!"""
+
+    def __init__(self, enable_log):
+        self.enable_log = enable_log
+        self.exec_log = []
+        self.hostname = ""
+
+    def log(self, cwd, command, ret=""):
+        """Log the execution to a list"""
+        if self.enable_log:
+            secs = str(time.time()).split(".")[0]
+            log_str = secs + ":" + self.hostname + ":" + cwd + ":" +\
+                      str(command)
+            if ret:
+                log_str += " ($? = " + str(ret) + ")"
+
+            self.exec_log.append(log_str)
+
+    def print_log(self):
+        """print the log messages in a friendly one entry / line way"""
+        print("Dump of log messages:")
+        for line in self.exec_log:
+            print(line)
+
+
+    def save_log(self):
+        """Save logs to I have no idea to where at this point"""
+        self.print_log()
+
 class ExecEnv:
     """ TheJob() has all important instances we will need during execution.
     Let's run it then."""
 
     def __init__(self, enable_log):
+        self.conf = None
         self.cwd = ""
-        self.enable_log = enable_log
-        self.exec_log = []
         self.hostname = ""
+        self.log = Logger(enable_log)
         self.pipeline_idx = 0
+
+        self.initialize()
 
     def check_output(self, cmd):
         """Run a command and return it's output"""
-        self.log(cmd[0])
+        self.log.log(self.cwd, cmd[0])
         stdout = subprocess.check_output(cmd, shell=True, cwd=self.cwd)
         stdout = stdout.decode()
         stdout = stdout[:-1]
         return stdout
 
+    def download(self, url, filename, iscritical=False):
+        """Download the url, save to download_dir/filename and return full path
+        to the downloaded file"""
+
+        if not self.conf:
+            self.exit("Initialize " + self.__class__.__name__ +
+                      ".conf before calling the download method.")
+
+        dl_dir = self.conf.conf.get("dir", "dl_dir")
+
+        dl_cmd = "curl -f -s " + url + " > " + filename
+
+        self.run(dl_dir, dl_cmd, iscritical)
+
+        return dl_dir + "/" + filename
+
     def exit(self, msg):
         """Does everything needed before exiting such as saving the logs"""
 
         secs = str(time.time()).split(".")[0]
-        self.exec_log.append(secs + ":" +  msg + " Exiting...")
-        self.save_log()
+        self.log.exec_log.append(secs + ":" +  msg + " Exiting...")
+        self.log.save_log()
         exit(1)
+
+    def finalize(self):
+        """Do this before exiting..."""
+        pass
 
     def initialize(self):
         """Setup the execution environment"""
@@ -377,31 +435,21 @@ class ExecEnv:
         self.cwd = "/tmp"
 
         self.hostname = self.check_output(["hostname"])
-
-    def finalize(self):
-        """Do this before exiting..."""
-        pass
-
-    def log(self, command, ret=""):
-        """Log the execution to a list"""
-        if self.enable_log:
-            secs = str(time.time()).split(".")[0]
-            log_str = secs + ":" + self.hostname + ":" + self.cwd + ":" +\
-                      str(command)
-            if ret:
-                log_str += " ($? = " + str(ret) + ")"
-
-            self.exec_log.append(log_str)
+        self.log.hostname = self.hostname
 
     def pipeline(self):
         """Run the commands on the pipeline for each git_in.checkin_target"""
         pass
 
-    def run(self, cwd, command_list, is_critical=False):
+    def run(self, cwd, command_list, iscritical=False):
         """Run the command_list and analyse the $? of each command. If
         isCritical is true, and one of the commands fail, call self.exit()"""
 
         self.cwd = cwd
+
+        # Just a string, not a list
+        if isinstance(command_list, str):
+            command_list = [command_list]
 
         ret_list = self.__call(command_list)
 
@@ -415,24 +463,25 @@ class ExecEnv:
                                " failed with $? = " + str(ret)
                 index += 1
 
-            if is_critical:
+            if iscritical:
                 self.exit(log_str)
 
-    def save_log(self):
-        """Save logs to I have no idea to where at this point"""
-        print(self.exec_log)
 
     def __call(self, command_list):
         """Internal function that uses subprocess.call. This should not be used
-        outside this class."""
+        outside this class. Expect a list of strings to be executed.
+        Expects self.cwd to contain the dir in which each command will be
+        executed"""
         ret_list = []
+
+
         for command in command_list:
             print("(" + command + ")")
             ret = subprocess.call(command, shell=True, cwd=self.cwd)
             if ret:
-                self.log(command, ret)
+                self.log.log(self.cwd, command, ret)
             else:
-                self.log(command)
+                self.log.log(self.cwd, command)
 
             ret_list.append(ret)
 
@@ -444,15 +493,20 @@ class ExecEnv:
 def main():
     """ Good old main """
 
-    myexec_env = ExecEnv(enable_log=True)
-    myexec_env.initialize()
-    print(myexec_env.hostname)
-    #print(myexec_env.exec_log)
-    myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
-    #print(myexec_env.exec_log)
+    # This isn't the most elegant solution
+    myexec = ExecEnv(enable_log=True)
+    mycon = JobConfig(myexec)
+    myexec.conf = mycon
+    print(myexec.download("http://petersenna.com/files/notfound",
+                          "frampton", iscritical=True))
+
+    #print(myexec_env.hostname)
+
+    #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"],
-    #               is_critical=True)
-    mycon = JobConfig(myexec_env)
+    #               iscritical=True)
+
+    #mycon.git_in.state.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
 
     #print(myconf.git_in.conf.config_url)
     #print(myconf.git_in.conf.checkout_targets)
@@ -474,11 +528,12 @@ def main():
     #print(myconf.git_in.conf.author_name)
     #print(myconf.git_out.conf.author_name)
 
-    #print(myconf.git_in.conf.path_on_disk)
-    #print(myconf.git_out.conf.path_on_disk)
+    #print(myconf.git_in.conf.repo_dir)
+    #print(myconf.git_out.conf.repo_dir)
     #print(myconf.git_out.conf.ssl_key_path)
 
-    return 0
+    myexec.exit("That's all folks!")
+
 
 if __name__ == '__main__':
     main()
