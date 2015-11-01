@@ -2,5 +2,5 @@
 tmp_dir: /tmp
 dl_dir: ${tmp_dir}
 ssl_key_dir: /root/.ssh
-git_out_dir: /tmp/git_out
-git_in_dir: /tmp/linux
+git_out_dir: /git_out
+git_in_dir: /linux
