@@ -4,6 +4,7 @@ FROM petersenna/coccinelle-linux-git
 RUN dnf -y install xz;dnf clean all
 
 ADD ["cloudspatch.py", "/"]
-ADD ["cloudspatch_conf", "/"]
+ADD ["csp_conf", "/"]
+ADD ["job_conf", "/"]
 
 ENTRYPOINT ["/cloudspatch.py"]
