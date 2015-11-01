@@ -58,15 +58,39 @@ class GitRepoState:
         self.initialized = False
         self.run = self.exec_env.run
 
-    def git_branch(self, opts):
+    def reset_clean(self):
+        """git reset --hard; git clean -f -x -d"""
+
+        self.git_reset("--hard")
+        self.git_clean("-f -x -d")
+
+    def git_branch(self, opts, iscritical=False):
         """Guess what: git branch opts"""
-        pass
-    def git_checkout(self, opts):
+
+        self.run(self.conf.repo_dir, "git branch " + opts, iscritical)
+
+    def git_checkout(self, opts, iscritical=False):
         """Guess what: git checkout opts"""
-        pass
+        # git reset --hard; git clean -f -x -d; git checkout ...
+        #call("git reset --hard", shell=True, cwd=linux_dir)
+        #call("git clean -f -x -d", shell=True, cwd=linux_dir)
+        #ret = call("git checkout " + checkout, shell=True, cwd=linux_dir)
+        #if ret != 0:
+        #    print("Could not checkout. Something is wrong...")
+        #    return -1
+
+        self.run(self.conf.repo_dir, "git checkout " + opts, iscritical)
+
+    def git_clean(self, opts):
+        """Guess what: git clean"""
+
+        self.run(self.conf.repo_dir, "git clean " + opts)
+
     def git_clone(self):
         """Guess what: git clone"""
-        pass
+
+        self.run(self.conf.repo_dir, "git clone " + self.conf.repo_url + " .",
+                 iscritical=True)
 
     def git_config(self, opts):
         """Guess what: git config opts"""
@@ -78,18 +102,30 @@ class GitRepoState:
 
         self.run(self.conf.repo_dir, "git init", iscritical=True)
 
-    def git_push(self, opts):
+    def git_push(self, opts, iscritical=False):
         """Guess what: git push opts"""
-        pass
+
+        self.run(self.conf.repo_dir, "git push " + opts, iscritical)
 
     def git_remote_update(self):
         """Guess what: do a git remote update"""
 
         self.run(self.conf.repo_dir, "git remote update", iscritical=True)
 
+    def git_reset(self, opts):
+        """Guess what: git reset"""
+
+        self.run(self.conf.repo_dir, "git reset " + opts)
+
     def isbranch(self, branch):
         """Return true if branch exist, False if not"""
-        pass
+
+        git_cmd = "git branch -a"
+        branches = self.exec_env.check_output(self.conf.repo_dir, git_cmd)
+        if branch in branches:
+            return True
+
+        return False
 
     def init(self):
         """Run all initialization procedures"""
@@ -109,9 +145,10 @@ class GitRepoState:
         else:
             self.init_by_url()
 
-
     def init_by_config(self):
-        """Init a git repository from on a config file, aka .git/config"""
+        """Init a git repository from on a config file, aka .git/config. The
+        hacky detail: This is made for the git_in repository, the repository
+        providing the source code for analysis."""
 
         repo_path = self.conf.repo_dir
         config_file_path = repo_path + "/.git/config"
@@ -145,7 +182,9 @@ class GitRepoState:
         self.git_remote_update()
 
     def init_by_url(self):
-        """Init a git repository from an url e.g. git clone url"""
+        """Init a git repository from an url e.g. git clone url. The hacky
+        detail: This is made for the git_out repository, the repository to which
+        cloudspatch will write to."""
 
         repo_url = self.conf.repo_url
         repo_dir = self.conf.repo_dir
@@ -157,27 +196,19 @@ class GitRepoState:
         self.exec_env.makedirs(key_dir)
 
         # Save the id_rsa aka private key
-        self.exec_env.echo(self.conf.ssl_key, key_path)
+        # Why create a file at /tmp and then copy it to the destination folder?
+        # To have a log of what is going on. There isn't a method to create a
+        # file at exec_env
+        self.exec_env.create_file(self.conf.ssl_key, key_path)
 
         # Fix private key permissions
-        self.exec_env.chmod("0600", key_path)
+        self.exec_env.chmod("0600 " + key_path)
 
-        # git@github.com:petersenna/smpl.git
-        #git_url = job_conf.get("git_out", "repo_url")
-        # becomes: git@github.com
-        #git_server = git_url.split(":")[0]
-        # Connect one time to create an entry at ~/.ssh/known_hosts.
-        # ssh thinks it failed but it didn't, the goal here is just
-        # to check the authenticity of git_server
-        #ret = call("/usr/bin/ssh -o StrictHostKeyChecking=no " + git_server,
-        #           shell=True, cwd=r"/tmp")
-        #if ret != 1:
-        #    print("Problem? I'll go on and try to clone $(gitout_repo_url)")
+        # This adds one entry to ~/.ssh/known_hosts
         self.exec_env.ssh_handshake(repo_url)
 
-        # This directory should not exist, delete if it is there
-        if os.path.exists(repo_dir):
-            self.exec_env.rmtree(repo_dir)
+        # This directory should not exist, delete it and create again
+        self.exec_env.rmtree(repo_dir)
         self.exec_env.makedirs(repo_dir)
 
         # Finally clone the directory
@@ -186,32 +217,16 @@ class GitRepoState:
         # Our branch: check if it exists, if not create it
         # Also create the directory tree and copy the cocci file
         if self.isbranch(branch):
-            self.git_checkout("remotes/origin/" + branch)
-            self.git_checkout("-b " + branch)
+            self.git_checkout("remotes/origin/" + branch, iscritical=True)
+            self.git_checkout("-b " + branch, iscritical=True)
         else:
-            self.git_checkout("-b " + branch)
-            self.git_push("origin " + branch)
+            self.git_checkout("-b " + branch, iscritical=True)
+            self.git_push("origin " + branch, iscritical=True)
 
         # Track the remote branch
-        self.git_branch("-u origin/" + branch)
+        self.git_branch("-u origin/" + branch, iscritical=True)
 
-        if not self.git_push("--dry-run"):
-            print("No write access to git_out...", file=sys.stderr)
-            exit(1)
-
-        return 0
-
-    def bad_checkout(self):
-        "This is a comment, not amethod"
-        # git reset --hard; git clean -f -x -d; git checkout ...
-        #call("git reset --hard", shell=True, cwd=linux_dir)
-        #call("git clean -f -x -d", shell=True, cwd=linux_dir)
-        #ret = call("git checkout " + checkout, shell=True, cwd=linux_dir)
-        #if ret != 0:
-        #    print("Could not checkout. Something is wrong...")
-        #    return -1
-        pass
-
+        self.git_push("--dry-run", iscritical=True)
 
 class GitRepo:
     """A git repository"""
@@ -358,14 +373,12 @@ class Logger:
     def __init__(self, enable_log):
         self.enable_log = enable_log
         self.exec_log = []
-        self.hostname = ""
 
     def log(self, cwd, command, ret=""):
         """Log the execution to a list"""
         if self.enable_log:
             secs = str(time.time()).split(".")[0]
-            log_str = secs + ":" + self.hostname + ":" + cwd + ":" +\
-                      str(command)
+            log_str = secs + "$ cd" + cwd + "; " + str(command)
             if ret:
                 log_str += " ($? = " + str(ret) + ")"
 
@@ -375,7 +388,7 @@ class Logger:
         """print the log messages in a friendly one entry / line way"""
         print("Dump of log messages:")
         for line in self.exec_log:
-            print(line)
+            print(line, file=sys.stderr)
 
 
     def save_log(self):
@@ -390,20 +403,33 @@ class ExecEnv:
         self.conf = None
         self.cwd = ""
         self.dl_dir = ""
-        self.hostname = ""
         self.log = Logger(enable_log)
         self.pipeline_idx = 0
         self.tmp_dir = ""
 
         self.initialize()
 
-    def check_output(self, cmd):
+    def check_output(self, cwd, command):
         """Run a command and return it's output"""
-        self.log.log(self.cwd, cmd[0])
-        stdout = subprocess.check_output(cmd, shell=True, cwd=self.cwd)
+
+        self.log.log(cwd, command)
+        stdout = subprocess.check_output(command, shell=True, cwd=cwd)
         stdout = stdout.decode()
-        stdout = stdout[:-1]
+        stdout = stdout[:-1] # Remove the newline
         return stdout
+
+    def chmod(self, opts, iscritical=False):
+        """call chmod opts"""
+
+        # This is needed to check if the method was called before setconf()
+        if self.tmp_dir:
+            tmp = self.tmp_dir
+        else:
+            tmp = "/tmp"
+
+        chmod_cmd = "chmod " + opts
+
+        self.run(tmp, chmod_cmd, iscritical)
 
     def copy(self, source, target, iscritical=False):
         "Call cp -f"
@@ -417,6 +443,14 @@ class ExecEnv:
         cp_cmd = "cp -f " + source + " " + target
 
         self.run(tmp, cp_cmd, iscritical)
+
+    def create_file(self, string, path):
+        """Equivalent of echo string > path"""
+
+        self.log.log(os.path.dirname(path), "cat " + os.path.basename(path))
+
+        with open(path, "w") as myfp:
+            myfp.write(string)
 
     def download(self, url, filename, iscritical=False):
         """Download the url, save to download_dir/filename and return full path
@@ -448,11 +482,12 @@ class ExecEnv:
     def initialize(self):
         """Setup the execution environment"""
 
-        # Default to /tmp unitl better option is given
-        self.cwd = "/tmp"
+        # This is needed to check if the method was called before setconf()
+        if self.tmp_dir:
+            tmp = self.tmp_dir
+        else:
+            tmp = "/tmp"
 
-        self.hostname = self.check_output(["hostname"])
-        self.log.hostname = self.hostname
 
     def makedirs(self, path, iscritical=False):
         """Call mkdir -p"""
@@ -522,6 +557,27 @@ class ExecEnv:
         self.tmp_dir = self.conf.conf.get("dir", "tmp_dir")
         self.dl_dir = self.conf.conf.get("dir", "dl_dir")
 
+    def ssh_handshake(self, url):
+        """Connect one time to create an entry at ~/.ssh/known_hosts. ssh thinks
+        it failed but it didn't, the goal here is just to check the authenticity
+        of git_server."""
+
+        # This is needed to check if the method was called before setconf()
+        if self.tmp_dir:
+            tmp = self.tmp_dir
+        else:
+            tmp = "/tmp"
+
+        # The command should fail and that's expected
+        iscritical = False
+
+        # git@github.com:petersenna/smpl.git => git@github.com
+        git_server = url.split(":")[0]
+
+        ssh_cmd = "/usr/bin/ssh -o StrictHostKeyChecking=no " + git_server
+
+        self.run(tmp, ssh_cmd, iscritical)
+
     def __call(self, command_list):
         """Internal function that uses subprocess.call. This should not be used
         outside this class. Expect a list of strings to be executed.
@@ -529,7 +585,7 @@ class ExecEnv:
         ret_list = []
 
         for command in command_list:
-            print("(cd " + self.cwd + ";" + command + ")")
+            print("(cd " + self.cwd + ";" + command + ")", file=sys.stderr)
             ret = subprocess.call(command, shell=True, cwd=self.cwd)
             if ret:
                 self.log.log(self.cwd, command, ret)
@@ -551,8 +607,8 @@ def main():
     #                      "frampton", iscritical=True))
 
     mycon.git_in.state.init_by_config()
+    mycon.git_out.state.init_by_url()
 
-    #print(myexec_env.hostname)
 
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"],
