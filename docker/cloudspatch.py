@@ -378,7 +378,7 @@ class Logger:
         """Log the execution to a list"""
         if self.enable_log:
             secs = str(time.time()).split(".")[0]
-            log_str = secs + "$ cd" + cwd + "; " + str(command)
+            log_str = secs + "$ cd " + cwd + "; " + str(command)
             if ret:
                 log_str += " ($? = " + str(ret) + ")"
 
