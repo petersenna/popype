@@ -85,11 +85,24 @@ script_files: log_f_names_from_if.cocci, log_f_args_count.cocci, log_f_calls.coc
 # script_file: filter_by_arg_count.py --parallel
 
 [interpreter]
-# Specify how to handle the script files. There are some special variables:
+# Specify how to handle the script files. Some special variables:
+#
 #    #SCRIPT#: Path to the script file
 #    #CORES#: Number of coreas provided by nproc
+#
 #    #PIPEIDX#: Index on the pipe starting from 0
-cocci: spatch #SCRIPT# -j #CORES# -D pipeidx=#PIPEIDX# -D pipestdout=#PIPESTDOUT# -D pipestderr=#PIPESTDERR# -dir . --timeout 120
+#    #PIPEDIR#: Path to the directory where pipe files are saved
+#
+#        #PIPEDIR#/#PIPEIDX#/{stdout,stderr,script}
+#
+#    #PIPESTDOUT#: Path to stdout of previous stage. Empty if #PIPEIDX# == 0
+#    #PIPESTDERR#: Path to stderr of previous stage. Empty if #PIPEIDX# == 0
+#
+cocci: spatch #SCRIPT# -j #CORES# -D pipeidx=#PIPEIDX# -D pipedir=#PIPEDIR#
+              -D pipestdout=#PIPESTDOUT# -D pipestderr=#PIPESTDERR#
+              -dir . --timeout 120
+
+# If the script is executable, it is optional to specify the interpreter
 #py: python3 -u
 
 [pipeline]
