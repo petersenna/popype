@@ -1,17 +1,17 @@
 #!/usr/bin/python3 -u
-""" Popype allows you to specify a pipeline of scripts to create tools in the
-shape of a Docker container. The original idea was to specify code analysis and
+"""Popype allows you to specify a pipeline of scripts to create tools in the
+shape of Docker containers. The original idea was to specify code analysis and
 code transformation tools as a pipeline of Coccinelle semantic patches and
-python scripts. However the pipe concept here do not map to an in memory pipe
-like Bash provides with |. A popype lives as files in a git repository, not in
-memory. A popype is not meant to be a replacement for in memory pipes, but it
-has nice features such as asyncronous and distributed execution. Then path to
-files (or git url as repo#branch:/file) are passed around instead of memory
-buffers. The current version expects a git repository to read data from, e.g.
-the Linux kernel, and another git repository to write to. The pipeline details
-and the details of the git repositories are defined in a configuration file.
-This is under development, and sensitive readers should not read after this
-point."""
+Python scripts. The popype concept do not map to an in memory pipe like Bash
+provides with |. Instead of sharing memory buffers, path to files (or git url as
+repo#branch:/file) are passed around stages of the pipeline. A popype lives as
+files in a git repository, not in memory buffers, and is not meant to be a
+replacement for in memory pipes. However it allows the execution of the pipeline
+to be asyncronous and distributed. The current version expects a git repository
+to read data from, e.g. the Linux kernel, and another git repository to write
+to.  The pipeline details and the details of the git repositories are defined in
+a configuration file.  This is under development, and sensitive readers should
+not read after this point."""
 
 __author__ = "Peter Senna Tschudin"
 __email__ = "peter.senna@gmail.com"
