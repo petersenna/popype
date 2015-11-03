@@ -1,10 +1,14 @@
 #!/usr/bin/python3 -u
-""" Cloudspatch allows you to specify a pipeline of Coccinelle semantic patches
-and scripts to create code analysis and code transformation tools. It expects a
-git repositories to read code from, e.g. the Linux kernel, and it expects a git
-repository to write to. The pipeline and the git details are defined in
-configuration file. This is under development, and sensitive readers should not
-read after this point."""
+""" Popype allows you to specify a pipeline of scripts to create tools in the
+shape of a Docker container. The original idea was to specify code analysis and
+code transformation tools as a pipeline of Coccinelle semantic patches and
+python scripts. The main difference to tradional pipes is that is saves stdout
+and stderr of previous stages of the pipe in a git repository. Then path to
+files are passed around instead of real memory pipes. The current version
+expects a git repositories to read code from, e.g. the Linux kernel, and it
+expects a git repository to write to. The pipeline and the git details are
+defined in configuration file. This is under development, and sensitive readers
+should not read after this point."""
 
 __author__ = "Peter Senna Tschudin"
 __email__ = "peter.senna@gmail.com"
@@ -15,7 +19,7 @@ from configparser import ConfigParser, ExtendedInterpolation
 import filecmp, os, logging, subprocess
 
 # Some ugly globals for names of configuration files
-CSP_CONF = "csp_conf"
+CSP_CONF = "popype_conf"
 JOB_CONF = "job_conf"
 
 class GitRepoConfig:

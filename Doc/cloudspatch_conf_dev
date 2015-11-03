@@ -1,6 +1,0 @@
-[dir]
-tmp_dir: /tmp
-cocci_dl_dir: ${tmp_dir}
-id_rsa_dir: ${tmp_dir}
-git_out_dir: ${tmp_dir}/git_out
-linux_dir: ${tmp_dir}/linux
