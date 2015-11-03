@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/python3 -u
 """ Cloudspatch allows you to specify a pipeline of Coccinelle semantic patches
 and scripts to create code analysis and code transformation tools. It expects a
 git repositories to read code from, e.g. the Linux kernel, and it expects a git
@@ -12,7 +12,7 @@ __license__ = "GPLv2"
 __version__ = "Alpha 2"
 
 from configparser import ConfigParser, ExtendedInterpolation
-import filecmp, os, shutil, sys, subprocess, time
+import filecmp, os, logging, subprocess
 
 # Some ugly globals for names of configuration files
 CSP_CONF = "csp_conf"
@@ -302,15 +302,15 @@ class JobConfig:
 
         # Is there a job_conf file?
         if len(self.conf) <= 2:
-            print(self.no_config_message, file=sys.stderr)
+            logging.warning(self.no_config_message)
             return False
 
         # Does the config file looks sane from far?
         problem = False
         for section in ["dir", "com", "git_in", "git_out", "cocci", "pipeline"]:
             if section not in self.conf.sections():
-                print("Section " + section + " not found in the config file.",
-                      file=sys.stderr)
+                logging.warning("Section " + section +
+                                " not found in the config file.")
                 problem = True
 
         if problem:
@@ -326,7 +326,7 @@ class JobConfig:
         self.conf.read([CSP_CONF, JOB_CONF])
 
         if not self.is_config_ok():
-            print(JOB_CONF + " error. Exiting...", file=sys.stderr)
+            logging.warning(JOB_CONF + " error. Exiting...")
             exit(1)
 
         # [git_in]
@@ -367,43 +367,15 @@ class JobConfig:
         # [pipeline]
         self.pipeline = Pipeline(self.conf.get("pipeline", "pipeline"))
 
-class Logger:
-    """This class does logging!"""
-
-    def __init__(self, enable_log):
-        self.enable_log = enable_log
-        self.exec_log = []
-
-    def log(self, cwd, command, ret=""):
-        """Log the execution to a list"""
-        if self.enable_log:
-            secs = str(time.time()).split(".")[0]
-            log_str = secs + "$ cd " + cwd + "; " + str(command)
-            if ret:
-                log_str += " ($? = " + str(ret) + ")"
-
-            self.exec_log.append(log_str)
-
-    def print_log(self):
-        """print the log messages in a friendly one entry / line way"""
-        print("Dump of log messages:")
-        for line in self.exec_log:
-            print(line, file=sys.stderr)
-
-
-    def save_log(self):
-        """Save logs to I have no idea to where at this point"""
-        self.print_log()
-
 class ExecEnv:
     """ TheJob() has all important instances we will need during execution.
     Let's run it then."""
 
-    def __init__(self, enable_log):
+    def __init__(self):
         self.conf = None
         self.cwd = ""
         self.dl_dir = ""
-        self.log = Logger(enable_log)
+        self.log_file = ""
         self.pipeline_idx = 0
         self.tmp_dir = ""
 
@@ -412,10 +384,13 @@ class ExecEnv:
     def check_output(self, cwd, command):
         """Run a command and return it's output"""
 
-        self.log.log(cwd, command)
+        log_str = "cd " + cwd + "; " + str(command)
+        logging.info(log_str)
+
         stdout = subprocess.check_output(command, shell=True, cwd=cwd)
         stdout = stdout.decode()
         stdout = stdout[:-1] # Remove the newline
+
         return stdout
 
     def chmod(self, opts, iscritical=False):
@@ -447,7 +422,8 @@ class ExecEnv:
     def create_file(self, string, path):
         """Equivalent of echo string > path"""
 
-        self.log.log(os.path.dirname(path), "cat " + os.path.basename(path))
+        log_str = "cat " + path
+        logging.info(log_str)
 
         with open(path, "w") as myfp:
             myfp.write(string)
@@ -470,9 +446,8 @@ class ExecEnv:
     def exit(self, msg):
         """Does everything needed before exiting such as saving the logs"""
 
-        secs = str(time.time()).split(".")[0]
-        self.log.exec_log.append(secs + ":" +  msg + " Exiting...")
-        self.log.save_log()
+        logging.info(msg + " Exiting...")
+
         exit(1)
 
     def finalize(self):
@@ -482,12 +457,8 @@ class ExecEnv:
     def initialize(self):
         """Setup the execution environment"""
 
-        # This is needed to check if the method was called before setconf()
-        if self.tmp_dir:
-            tmp = self.tmp_dir
-        else:
-            tmp = "/tmp"
-
+        logging.basicConfig(format="(%(asctime)s %(levelname)s $ %(message)s)",
+                            level=logging.INFO)
 
     def makedirs(self, path, iscritical=False):
         """Call mkdir -p"""
@@ -536,26 +507,17 @@ class ExecEnv:
         if isinstance(command_list, str):
             command_list = [command_list]
 
-        ret_list = self.__call(command_list)
-
-        # Something wrong?
-        if iscritical and ret_list.count(0) != len(ret_list):
-            index = 0
-            log_str = ""
-            for ret in ret_list:
-                if ret != 0:
-                    log_str += "Running " + command_list[index] +\
-                               " failed with $? = " + str(ret)
-                index += 1
-
-            self.exit(log_str)
+        return self.__call(command_list, iscritical)
 
     def setconf(self, conf):
         "set self.conf and do some initializations"
 
         self.conf = conf
-        self.tmp_dir = self.conf.conf.get("dir", "tmp_dir")
         self.dl_dir = self.conf.conf.get("dir", "dl_dir")
+        self.log_file = self.conf.conf.get("dir", "log_file")
+        self.tmp_dir = self.conf.conf.get("dir", "tmp_dir")
+
+        logging.basicConfig(filename=self.log_file)
 
     def ssh_handshake(self, url):
         """Connect one time to create an entry at ~/.ssh/known_hosts. ssh thinks
@@ -578,19 +540,20 @@ class ExecEnv:
 
         self.run(tmp, ssh_cmd, iscritical)
 
-    def __call(self, command_list):
+    def __call(self, command_list, iscritical=False):
         """Internal function that uses subprocess.call. This should not be used
         outside this class. Expect a list of strings to be executed.
         Set self.cwd before calling this method."""
         ret_list = []
 
         for command in command_list:
-            print("(cd " + self.cwd + ";" + command + ")", file=sys.stderr)
+            log_str = "cd " + self.cwd + "; " + str(command)
             ret = subprocess.call(command, shell=True, cwd=self.cwd)
             if ret:
-                self.log.log(self.cwd, command, ret)
-            else:
-                self.log.log(self.cwd, command)
+                log_str += " ($? = " + str(ret) + ")"
+                if iscritical:
+                    self.exit("Command " + log_str + "returned error " + ret)
+            logging.info(log_str)
 
             ret_list.append(ret)
 
@@ -600,7 +563,7 @@ def main():
     """ Good old main """
 
     # This isn't the most elegant solution
-    myexec = ExecEnv(enable_log=True)
+    myexec = ExecEnv()
     mycon = JobConfig(myexec)
     myexec.setconf(mycon)
     #print(myexec.download("http://petersenna.com/files/notfound",

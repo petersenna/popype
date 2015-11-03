@@ -1,6 +1,7 @@
 [dir]
-tmp_dir: /tmp
 dl_dir: ${tmp_dir}
-ssl_key_dir: /root/.ssh
 git_out_dir: /git_out
 git_in_dir: /linux
+log_file: ${tmp_dir}/cloudspatch.log
+ssl_key_dir: /root/.ssh
+tmp_dir: /tmp
