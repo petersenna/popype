@@ -3,8 +3,9 @@ FROM petersenna/coccinelle-linux-git
 
 RUN dnf -y install xz;dnf clean all
 
-ADD ["cloudspatch.py", "/"]
+ADD ["spatch-wrapper", "/usr/local/bin"]
+ADD ["popype.py", "/"]
 ADD ["popype_conf", "/"]
 ADD ["job_conf", "/"]
 
-ENTRYPOINT ["/cloudspatch.py"]
+ENTRYPOINT ["/popype.py"]

@@ -78,32 +78,31 @@ key: -----BEGIN RSA PRIVATE KEY-----
 script_files: log_f_names_from_if.cocci, log_f_args_count.cocci, log_f_calls.cocci, count_calls.py, filter_by_arg_count.py
 
 # OR specify multiple script_file with arguments for each script
+#
+# This is _not_ implemented yet
+#
 # script_file: log_f_names_from_if.cocci --timeout 120
 # script_file: log_f_args_count.cocci --timeout 120
 # script_file: log_f_calls.cocci --timeout 120
 # script_file: count_calls.py --parallel
 # script_file: filter_by_arg_count.py --parallel
 
-[interpreter]
-# Specify how to handle the script files. Some special variables:
-#
-#    #SCRIPT#: Path to the script file
-#    #CORES#: Number of coreas provided by nproc
+[popype_args]
+# Specify how to pass popye variables to scripts. The variables are:
 #
 #    #PIPEIDX#: Index on the pipe starting from 0
-#    #PIPEDIR#: Path to the directory where pipe files are saved
+#    #PIPEDIR#: Path to the directory where pipe files are saved. The contents:
 #
 #        #PIPEDIR#/#PIPEIDX#/{stdout,stderr,script}
 #
 #    #PIPESTDOUT#: Path to stdout of previous stage. Empty if #PIPEIDX# == 0
 #    #PIPESTDERR#: Path to stderr of previous stage. Empty if #PIPEIDX# == 0
 #
-cocci: spatch #SCRIPT# -j #CORES# -D pipeidx=#PIPEIDX# -D pipedir=#PIPEDIR#
-              -D pipestdout=#PIPESTDOUT# -D pipestderr=#PIPESTDERR#
-              -dir . --timeout 120
+cocci: -D pipeidx=#PIPEIDX# -D pipedir=#PIPEDIR#
+       -D pipestdout=#PIPESTDOUT# -D pipestderr=#PIPESTDERR#
 
-# If the script is executable, it is optional to specify the interpreter
-#py: python3 -u
+py: --pipeidx #PIPEIDX# --pipedir #PIPEDIR#
+    --pipestdout #PIPESTDOUT# --pipestderr #PIPESTDERR#
 
 [pipeline]
 # This is not like a pipe from Bash. Instead of doing stdout to stdin magic

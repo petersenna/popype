@@ -1,3 +1,4 @@
+#!/usr/local/bin/spatch-wrapper --timeout 120 -j 0
 @initialize:python@
 results_dir << virtual.results_dir;
 @@

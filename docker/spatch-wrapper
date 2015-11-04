@@ -1,0 +1,28 @@
+#!/bin/bash
+# Peter Senna Tschudin <peter.senna@gmail.com>
+
+all_args=$@
+
+# Get the path to the .cocci file starting with / or with ./
+old_file=$(echo $all_args|perl -nle 'm/([\.\/].*?\.cocci)/;print $1')
+
+# Generate a ramdom file name that ends with .cocci
+new_file="/tmp/"$(cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 8 | head -n 1)".cocci"
+
+# Remove $old_file from the args and add $new_file
+new_args=${all_args/$old_file/}" --sp-file $new_file"
+
+# If the handler is called directly
+if [[ ! $old_file ]];then
+	echo Error: no .cocci file found!
+	exit 1
+fi
+
+# Just remove the first line of $old_file and save it to $new_file
+tail -n +2 $old_file > $new_file
+
+# Call spatch
+spatch $new_args
+
+# Remove the temporary semantic patch
+rm -rf $new_file
