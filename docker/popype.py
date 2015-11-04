@@ -21,9 +21,10 @@ __version__ = "Alpha 2"
 from configparser import ConfigParser, ExtendedInterpolation
 import filecmp, os, logging, subprocess
 
-# Some ugly globals for names of configuration files
+# Some ugly globals
 CSP_CONF = "popype_conf"
 JOB_CONF = "job_conf"
+SCRIPT_DIR = "/"
 
 class GitRepoConfig:
     """Configuration of the Git repository, mostly from the configuration
@@ -33,8 +34,7 @@ class GitRepoConfig:
         self.author_email = ""
         self.author_name = ""
         self.branch_for_write = ""
-        self.checkout_targets = []
-        self.compress = None
+        self.compress = False
         self.repo_dir = ""
         self.ssl_key = ""
         self.ssl_key_path = ""
@@ -45,24 +45,16 @@ class GitRepoConfig:
         if isconfig:
             self.config_url = repo_or_config
 
-    def set_checkout(self, checkout_csv):
-        """Define the checkout targets"""
-        self.checkout_targets = [x.strip() for x in checkout_csv.split(",")]
+class GitRepo:
+    """A git repository"""
 
-    def set_compression(self):
-        """Should stdout and stderr be compressed before committing?"""
-        self.compress = True
-
-class GitRepoState:
-    """ State of the repository, e.g.: Is it initialized? Is it checked out? To
-    which checkout target? """
-
-    def __init__(self, conf, exec_env):
-        self.changes_to_commit = False
+    def __init__(self, exec_env, repo_or_config, isrepo=False, isconfig=False):
+        self.clean = False
+        self.ready = False
         self.checkout_idx = None
-        self.conf = conf
+        self.checkout_targets = []
+        self.conf = GitRepoConfig(repo_or_config, isrepo, isconfig)
         self.exec_env = exec_env
-        self.initialized = False
         self.run = self.exec_env.run
 
     def reset_clean(self):
@@ -235,23 +227,37 @@ class GitRepoState:
 
         self.git_push("--dry-run", iscritical=True)
 
-class GitRepo:
-    """A git repository"""
-    def __init__(self, repo_or_config, isrepo=False, isconfig=False):
-        self.conf = GitRepoConfig(repo_or_config, isrepo, isconfig)
-        self.state = None
+    def set_checkout(self, checkout_csv):
+        """Define the checkout targets"""
 
-    def set_state(self, exec_env):
-        """When an instance of GitRepo is created it is likely that there is no
-        execution state available. This is used to set the state given an
-        instance of ExecEnv()"""
-        self.state = GitRepoState(self.conf, exec_env)
+        self.checkout_targets = [x.strip() for x in checkout_csv.split(",")]
 
 class Script:
-    """A script"""
+    "A script"
 
-    def __init__(self, name):
-        self.name = name
+    def __init__(self, name, exec_env):
+        self.name = SCRIPT_DIR + name
+        self.exec_env = exec_env
+
+    def run(self, cwd, iscritical):
+        """Run this script at the cwd directory"""
+
+        return self.exec_env.run(cwd, self.name, iscritical)
+
+class Scripts:
+    """A dictionary of scripts"""
+
+    def __init__(self, script_csv_string, exec_env):
+        self.scripts = {}
+        self.exec_env = exec_env
+
+        self.set_scripts(script_csv_string)
+
+    def set_scripts(self, script_csv_string):
+        """Create the dictionary of scripts """
+
+        self.scripts = {x: Script(x, self.exec_env) for x in
+                        [x.strip() for x in script_csv_string.split(",")]}
 
 class Pipeline:
     """This is not like a pipe from Bash. Instead of doing stdout to stdin magic
@@ -261,6 +267,11 @@ class Pipeline:
     def __init__(self, pipeline_str):
         self.pipeline_stages = []
         self.stage_count = 0
+
+        self.pipe_idx = None
+        self.pipe_dir = None
+        self.prev_stdout = None
+        self.prev_stderr = None
 
         self.pipeline_str = pipeline_str
         self.parse_pipeline()
@@ -287,7 +298,7 @@ class JobConfig:
         self.git_in = None
         self.git_out = None
         self.pipeline = None
-        self.script_files = {}
+        self.scripts = None
 
         self.read_config()
 
@@ -325,19 +336,21 @@ class JobConfig:
             exit(1)
 
         # [git_in]
-        self.git_in = GitRepo(self.conf.get("git_in", "config_url"),
+        self.git_in = GitRepo(self.exec_env,
+                              self.conf.get("git_in", "config_url"),
                               isconfig=True)
-        self.git_in.conf.set_checkout(self.conf.get("git_in", "checkout"))
-        #self.git_in.set_checkout("      catapimba_peter    ")
+        self.git_in.set_checkout(self.conf.get("git_in", "checkout"))
         self.git_in.conf.author_name = self.conf.get("com", "author")
         self.git_in.conf.author_email = self.conf.get("com", "email")
         self.git_in.conf.repo_dir = self.conf.get("dir", "git_in_dir")
-        self.git_in.set_state(self.exec_env)
 
         # [git_out]
-        self.git_out = GitRepo(self.conf.get("git_out", "repo_url"),
+        self.git_out = GitRepo(self.exec_env,
+                               self.conf.get("git_out", "repo_url"),
                                isrepo=True)
-        self.git_out.conf.set_compression()
+        if self.conf.get("git_out", "compress") == "gz":
+            self.git_out.conf.compress = True
+
         self.git_out.conf.branch_for_write = self.conf.get("git_out", "branch")
         self.git_out.conf.ssl_key = self.conf.get("git_out", "key")
         self.git_out.conf.ssl_key_path = self.conf.get("dir", "ssl_key_dir")
@@ -345,12 +358,10 @@ class JobConfig:
         self.git_out.conf.author_name = self.conf.get("com", "author")
         self.git_out.conf.author_email = self.conf.get("com", "email")
         self.git_out.conf.repo_dir = self.conf.get("dir", "git_out_dir")
-        self.git_out.set_state(self.exec_env)
 
         # [script]
-        job_script_files = self.conf.get("script", "script_files").split(",")
-        self.script_files = {x: Script(x) for x in
-                             [x.strip() for x in job_script_files]}
+        self.scripts = Scripts(self.conf.get("script", "script_files"),
+                               self.exec_env)
 
         # [pipeline]
         self.pipeline = Pipeline(self.conf.get("pipeline", "pipeline"))
@@ -367,15 +378,18 @@ class ExecEnv:
         self.pipeline_idx = 0
         self.tmp_dir = ""
 
-        self.initialize()
+        logging.basicConfig(format="(%(asctime)s %(levelname)s $ %(message)s)",
+                            level=logging.INFO)
 
     def check_output(self, cwd, command):
         """Run a command and return it's output"""
 
-        log_str = "cd " + cwd + "; " + str(command)
+        self.cwd = cwd
+
+        log_str = "cd " + self.cwd + "; " + str(command)
         logging.info(log_str)
 
-        stdout = subprocess.check_output(command, shell=True, cwd=cwd)
+        stdout = subprocess.check_output(command, shell=True, cwd=self.cwd)
         stdout = stdout.decode()
         stdout = stdout[:-1] # Remove the newline
 
@@ -422,8 +436,7 @@ class ExecEnv:
 
         if not self.dl_dir:
             self.exit("Call " + self.__class__.__name__ +
-                      ".setconf() before calling the download method.",
-                      error=True)
+                      ".setconf() before calling the download method.")
 
 
         dl_cmd = "curl -f -s " + url + " > " + filename
@@ -432,7 +445,7 @@ class ExecEnv:
 
         return self.dl_dir + "/" + filename
 
-    def exit(self, msg, error=False):
+    def exit(self, msg, error=True):
         """Does everything needed before exiting such as saving the logs"""
 
         if error:
@@ -441,16 +454,6 @@ class ExecEnv:
             logging.info(msg + ". Exiting...")
 
         exit(1)
-
-    def finalize(self):
-        """Do this before exiting..."""
-        pass
-
-    def initialize(self):
-        """Setup the execution environment"""
-
-        logging.basicConfig(format="(%(asctime)s %(levelname)s $ %(message)s)",
-                            level=logging.INFO)
 
     def makedirs(self, path, iscritical=False):
         """Call mkdir -p"""
@@ -464,11 +467,9 @@ class ExecEnv:
         mkdir_cmd = "mkdir -p " + path
 
         if path[0] != "/":
-            self.exit(mkdir_cmd + " Error: relative path not accepted",
-                      error=True)
+            self.exit(mkdir_cmd + " Error: relative path not accepted")
 
         self.run(tmp, mkdir_cmd, iscritical)
-
 
     def pipeline(self):
         """Run the commands on the pipeline for each git_in.checkin_target"""
@@ -486,7 +487,7 @@ class ExecEnv:
         rm_cmd = "rm -rf " + path
 
         if path[0] != "/":
-            self.exit(rm_cmd + " Error: relative path not accepted", error=True)
+            self.exit(rm_cmd + " Error: relative path not accepted")
 
         self.run(tmp, rm_cmd, iscritical)
 
@@ -545,7 +546,7 @@ class ExecEnv:
             if ret:
                 log_str += " ($? = " + str(ret) + ")"
                 if iscritical:
-                    self.exit(log_str + "returned error " + str(ret), error=True)
+                    self.exit(log_str + "returned error " + str(ret))
             logging.info(log_str)
 
             ret_list.append(ret)
@@ -559,11 +560,9 @@ def main():
     myexec = ExecEnv()
     mycon = JobConfig(myexec)
     myexec.setconf(mycon)
-    #print(myexec.download("http://petersenna.com/files/notfound",
-    #                      "frampton", iscritical=True))
 
-    mycon.git_in.state.init()
-    mycon.git_out.state.init()
+    mycon.git_in.init()
+    mycon.git_out.init()
 
 
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
@@ -594,7 +593,7 @@ def main():
     #print(myconf.git_out.conf.repo_dir)
     #print(myconf.git_out.conf.ssl_key_path)
 
-    myexec.exit("That's all folks!")
+    myexec.exit("That's all folks!", error=False)
 
 
 if __name__ == '__main__':
