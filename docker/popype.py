@@ -576,8 +576,8 @@ def main():
     #print(myexec.download("http://petersenna.com/files/notfound",
     #                      "frampton", iscritical=True))
 
-    mycon.git_in.state.init_by_config()
-    mycon.git_out.state.init_by_url()
+    mycon.git_in.state.init()
+    mycon.git_out.state.init()
 
 
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
