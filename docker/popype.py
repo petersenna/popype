@@ -137,17 +137,11 @@ class GitRepoState:
     def init(self):
         """Run all initialization procedures"""
 
-        # Some global configurations
-        self.git_config("--global user.name \"" + self.conf.author_name + "\"")
-        self.git_config("--global user.email \"" +
-                        self.conf.author_email + "\"")
-        self.git_config("--global push.default simple")
-
         # Repository can be defined by an url to a git config file or by an url
         # to use in git clone
         try:
             self.conf.repo_url
-        except NameError:
+        except AttributeError:
             self.init_by_config()
         else:
             self.init_by_url()
@@ -218,11 +212,17 @@ class GitRepoState:
         self.exec_env.rmtree(repo_dir)
         self.exec_env.makedirs(repo_dir)
 
+        # Some global configurations
+        self.git_config("--global user.name \"" + self.conf.author_name + "\"")
+        self.git_config("--global user.email \"" +
+                        self.conf.author_email + "\"")
+        self.git_config("--global push.default simple")
+
         # Finally clone the directory
         self.git_clone()
 
         # Our branch: check if it exists, if not create it
-        # Also create the directory tree and copy the cocci file
+        # Also create the directory tree and copy the script file
         if self.isbranch(branch):
             self.git_checkout("remotes/origin/" + branch, iscritical=True)
             self.git_checkout("-b " + branch, iscritical=True)
@@ -246,18 +246,6 @@ class GitRepo:
         execution state available. This is used to set the state given an
         instance of ExecEnv()"""
         self.state = GitRepoState(self.conf, exec_env)
-
-class Cocci:
-    """A .cocci file"""
-
-    def __init__(self, name, spatch_opts):
-        self.name = name
-        self.spatch_opts = spatch_opts
-
-    def __run(self):
-        """Return path and a list of commands. Each command will be executed in
-        the path"""
-        pass
 
 class Script:
     """A script"""
@@ -294,7 +282,6 @@ class JobConfig:
         "    github.com/petersenna/cloudspatch/tree/master/Doc/job_example\n")
 
     def __init__(self, exec_env):
-        self.cocci_files = {}
         self.conf = None
         self.exec_env = exec_env
         self.git_in = None
@@ -314,7 +301,8 @@ class JobConfig:
 
         # Does the config file looks sane from far?
         problem = False
-        for section in ["dir", "com", "git_in", "git_out", "cocci", "pipeline"]:
+        for section in ["dir", "com", "git_in", "git_out", "script",
+                        "popype_args", "pipeline"]:
             if section not in self.conf.sections():
                 logging.warning("Section " + section +
                                 " not found in the config file.")
@@ -358,13 +346,6 @@ class JobConfig:
         self.git_out.conf.author_email = self.conf.get("com", "email")
         self.git_out.conf.repo_dir = self.conf.get("dir", "git_out_dir")
         self.git_out.set_state(self.exec_env)
-
-        # [cocci]
-        cocci_def_opts = self.conf.get("cocci", "cocci_def_opts")
-
-        job_cocci_files = self.conf.get("cocci", "cocci_files").split(",")
-        self.cocci_files = {x: Cocci(x, cocci_def_opts) for x in
-                            [x.strip() for x in job_cocci_files]}
 
         # [script]
         job_script_files = self.conf.get("script", "script_files").split(",")
@@ -453,7 +434,7 @@ class ExecEnv:
     def exit(self, msg):
         """Does everything needed before exiting such as saving the logs"""
 
-        logging.info(msg + " Exiting...")
+        logging.error(msg + ". Exiting...")
 
         exit(1)
 
@@ -559,7 +540,7 @@ class ExecEnv:
             if ret:
                 log_str += " ($? = " + str(ret) + ")"
                 if iscritical:
-                    self.exit("Command " + log_str + "returned error " + ret)
+                    self.exit(log_str + "returned error " + str(ret))
             logging.info(log_str)
 
             ret_list.append(ret)
@@ -594,8 +575,6 @@ def main():
     #print(myconf.git_out.conf.branch_for_write)
     #print(myconf.git_out.ssl_key)
 
-    #for cocci_file in myconf.cocci_files.keys():
-    #    print(cocci_file)
     #for script_file in myconf.script_files.keys():
     #    print(script_file)
 
