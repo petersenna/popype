@@ -422,7 +422,8 @@ class ExecEnv:
 
         if not self.dl_dir:
             self.exit("Call " + self.__class__.__name__ +
-                      ".setconf() before calling the download method.")
+                      ".setconf() before calling the download method.",
+                      error=True)
 
 
         dl_cmd = "curl -f -s " + url + " > " + filename
@@ -431,10 +432,13 @@ class ExecEnv:
 
         return self.dl_dir + "/" + filename
 
-    def exit(self, msg):
+    def exit(self, msg, error=False):
         """Does everything needed before exiting such as saving the logs"""
 
-        logging.error(msg + ". Exiting...")
+        if error:
+            logging.error(msg + ". Exiting...")
+        else:
+            logging.info(msg + ". Exiting...")
 
         exit(1)
 
@@ -460,7 +464,8 @@ class ExecEnv:
         mkdir_cmd = "mkdir -p " + path
 
         if path[0] != "/":
-            self.exit(mkdir_cmd + " Error: relative path not accepted")
+            self.exit(mkdir_cmd + " Error: relative path not accepted",
+                      error=True)
 
         self.run(tmp, mkdir_cmd, iscritical)
 
@@ -481,7 +486,7 @@ class ExecEnv:
         rm_cmd = "rm -rf " + path
 
         if path[0] != "/":
-            self.exit(rm_cmd + " Error: relative path not accepted")
+            self.exit(rm_cmd + " Error: relative path not accepted", error=True)
 
         self.run(tmp, rm_cmd, iscritical)
 
@@ -540,7 +545,7 @@ class ExecEnv:
             if ret:
                 log_str += " ($? = " + str(ret) + ")"
                 if iscritical:
-                    self.exit(log_str + "returned error " + str(ret))
+                    self.exit(log_str + "returned error " + str(ret), error=True)
             logging.info(log_str)
 
             ret_list.append(ret)
