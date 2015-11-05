@@ -26,6 +26,20 @@ CSP_CONF = "popype_conf"
 JOB_CONF = "job_conf"
 SCRIPT_DIR = "/"
 
+# Some logging functions
+def exit_error(msg):
+    """Log the error and exit with -1"""
+
+    logging.error(msg + ". Exiting...")
+    exit(-1)
+
+def exit_info(msg):
+    """Log the info and exit with 0"""
+
+    logging.info(msg + ". Exiting...")
+    exit(0)
+
+
 class GitRepoConfig:
     """Configuration of the Git repository, mostly from the configuration
     files"""
@@ -232,32 +246,38 @@ class GitRepo:
 
         self.checkout_targets = [x.strip() for x in checkout_csv.split(",")]
 
-class Script:
-    "A script"
+class Env:
+    """Environment variables for runtime"""
+    pass
 
-    def __init__(self, name, exec_env):
-        self.name = SCRIPT_DIR + name
-        self.exec_env = exec_env
+class Stage:
+    """Stage of the pipeline"""
+    def __init__(self, name):
+        self.name = name
+        self.env = None
 
-    def run(self, cwd, iscritical):
-        """Run this script at the cwd directory"""
+    def set_env(self, env):
+        """Set env for Stage"""
+        self.env = env
 
-        return self.exec_env.run(cwd, self.name, iscritical)
+    def run(self):
+        "Run the stage"
 
-class Scripts:
-    """A dictionary of scripts"""
+        if not self.env:
+            exit_error(self.name + ": No environment found for running.")
 
-    def __init__(self, script_csv_string, exec_env):
-        self.scripts = {}
-        self.exec_env = exec_env
+        ext = self.name.split(".")[1]
+        pipe_par = self.env.conf.get("popype_args", ext)
 
-        self.set_scripts(script_csv_string)
+        pipe_par = pipe_par.replace("#PIPEIDX#", self.env.pipeidx)
+        pipe_par = pipe_par.replace("#PIPEDIR#", self.env.pipedir)
+        pipe_par = pipe_par.replace("#PIPESTDOUT#", self.env.pipestdout)
+        pipe_par = pipe_par.replace("#PIPESTDERR#", self.env.pipestderr)
 
-    def set_scripts(self, script_csv_string):
-        """Create the dictionary of scripts """
+        cmd = SCRIPT_DIR + self.name + " " + pipe_par
 
-        self.scripts = {x: Script(x, self.exec_env) for x in
-                        [x.strip() for x in script_csv_string.split(",")]}
+        self.env.exe.set_env(self.env)
+        self.env.exe.run(cmd)
 
 class Pipeline:
     """This is not like a pipe from Bash. Instead of doing stdout to stdin magic
@@ -265,22 +285,18 @@ class Pipeline:
     then full path to these files are passed around."""
 
     def __init__(self, pipeline_str):
-        self.pipeline_stages = []
-        self.stage_count = 0
+        self.env = None
+
+        self.job = JobConfig()
 
         self.pipe_idx = None
         self.pipe_dir = None
         self.prev_stdout = None
         self.prev_stderr = None
 
-        self.pipeline_str = pipeline_str
-        self.parse_pipeline()
-
-    def parse_pipeline(self):
-        """Transform the string from the user to a list"""
-        self.pipeline_stages = [x.strip() for x in self.pipeline_str.split("|")]
-
+        self.stages = [Stage(x.strip()) for x in pipeline_str.split("|")]
         self.stage_count = len(self.pipeline_stages)
+
 
 class JobConfig:
     """Store the instances related to the job described on the job_conf file"""
@@ -290,11 +306,11 @@ class JobConfig:
         "Create a " + JOB_CONF + " file and create a new container FROM\n"
         "this one. Example " + JOB_CONF + ":\n"
         "\n"
-        "    github.com/petersenna/cloudspatch/tree/master/Doc/job_example\n")
+        "    github.com/petersenna/popype/tree/master/Doc/job_example\n")
 
-    def __init__(self, exec_env):
+    def __init__(self):
         self.conf = None
-        self.exec_env = exec_env
+        self.env = None
         self.git_in = None
         self.git_out = None
         self.pipeline = None
@@ -332,8 +348,7 @@ class JobConfig:
         self.conf.read([CSP_CONF, JOB_CONF])
 
         if not self.is_config_ok():
-            logging.warning(JOB_CONF + " error. Exiting...")
-            exit(1)
+            exit_error(JOB_CONF + " error")
 
         # [git_in]
         self.git_in = GitRepo(self.exec_env,
@@ -353,8 +368,8 @@ class JobConfig:
 
         self.git_out.conf.branch_for_write = self.conf.get("git_out", "branch")
         self.git_out.conf.ssl_key = self.conf.get("git_out", "key")
-        self.git_out.conf.ssl_key_path = self.conf.get("dir", "ssl_key_dir")
-        self.git_out.conf.ssl_key_path += "/id_rsa"
+        self.git_out.conf.ssl_key_path = self.conf.get("dir", "ssl_key_dir") +
+                                         "/id_rsa"
         self.git_out.conf.author_name = self.conf.get("com", "author")
         self.git_out.conf.author_email = self.conf.get("com", "email")
         self.git_out.conf.repo_dir = self.conf.get("dir", "git_out_dir")
@@ -557,13 +572,16 @@ def main():
     """ Good old main """
 
     # This isn't the most elegant solution
-    myexec = ExecEnv()
-    mycon = JobConfig(myexec)
-    myexec.setconf(mycon)
+    mypipeline = Pipeline()
 
-    mycon.git_in.init()
-    mycon.git_out.init()
-
+#    for checkout in git_in:
+#        checkout.checkout()
+#        pipeline.set_env(checkout.get_env())
+#        for stage in pipeline:
+#            stage.checkout()
+#            stage.run()
+#            git_out.set_env(stage.get_env())
+#            git_out.add_commit_push()
 
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"])
     #myexec_env.run("/tmp", ["ls -la", "ls -lah", "ls -lah pimba"],
