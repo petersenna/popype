@@ -276,15 +276,14 @@ class Stage:
 
         cmd = SCRIPT_DIR + self.name + " " + pipe_par
 
-        self.env.exe.set_env(self.env)
-        self.env.exe.run(cmd)
+        self.env.exe.env_run(self.env, cmd)
 
 class Pipeline:
     """This is not like a pipe from Bash. Instead of doing stdout to stdin magic
     using real, and in memory pipes, stdout and stderr are saved to disk, and
     then full path to these files are passed around."""
 
-    def __init__(self, pipeline_str):
+    def __init__(self):
         self.env = None
 
         self.job = JobConfig()
@@ -294,9 +293,13 @@ class Pipeline:
         self.prev_stdout = None
         self.prev_stderr = None
 
-        self.stages = [Stage(x.strip()) for x in pipeline_str.split("|")]
+        self.stages = [Stage(x.strip()) for x in
+                       self.job.pipeline_str.split("|")]
         self.stage_count = len(self.pipeline_stages)
 
+    def create_env(self):
+        """Create the environment variables for starting the execution"""
+        self.env = Env()
 
 class JobConfig:
     """Store the instances related to the job described on the job_conf file"""
@@ -313,8 +316,8 @@ class JobConfig:
         self.env = None
         self.git_in = None
         self.git_out = None
-        self.pipeline = None
-        self.scripts = None
+        self.pipeline_str = None
+        self.stages_str = None
 
         self.read_config()
 
@@ -328,8 +331,8 @@ class JobConfig:
 
         # Does the config file looks sane from far?
         problem = False
-        for section in ["dir", "com", "git_in", "git_out", "script",
-                        "popype_args", "pipeline"]:
+        for section in ["dir", "cmd_line_args", "com", "git_in", "git_out",
+                        "pipeline"]:
             if section not in self.conf.sections():
                 logging.warning("Section " + section +
                                 " not found in the config file.")
@@ -351,8 +354,7 @@ class JobConfig:
             exit_error(JOB_CONF + " error")
 
         # [git_in]
-        self.git_in = GitRepo(self.exec_env,
-                              self.conf.get("git_in", "config_url"),
+        self.git_in = GitRepo(self.conf.get("git_in", "config_url"),
                               isconfig=True)
         self.git_in.set_checkout(self.conf.get("git_in", "checkout"))
         self.git_in.conf.author_name = self.conf.get("com", "author")
@@ -360,8 +362,7 @@ class JobConfig:
         self.git_in.conf.repo_dir = self.conf.get("dir", "git_in_dir")
 
         # [git_out]
-        self.git_out = GitRepo(self.exec_env,
-                               self.conf.get("git_out", "repo_url"),
+        self.git_out = GitRepo(self.conf.get("git_out", "repo_url"),
                                isrepo=True)
         if self.conf.get("git_out", "compress") == "gz":
             self.git_out.conf.compress = True
@@ -374,12 +375,8 @@ class JobConfig:
         self.git_out.conf.author_email = self.conf.get("com", "email")
         self.git_out.conf.repo_dir = self.conf.get("dir", "git_out_dir")
 
-        # [script]
-        self.scripts = Scripts(self.conf.get("script", "script_files"),
-                               self.exec_env)
-
         # [pipeline]
-        self.pipeline = Pipeline(self.conf.get("pipeline", "pipeline"))
+        self.pipeline_str = self.conf.get("pipeline", "pipeline")
 
 class ExecEnv:
     """ TheJob() has all important instances we will need during execution.
