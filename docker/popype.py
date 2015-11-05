@@ -276,7 +276,7 @@ class Stage:
 
         cmd = SCRIPT_DIR + self.name + " " + pipe_par
 
-        self.env.exe.env_run(self.env, cmd)
+        self.env.env_run(self.env, cmd)
 
 class Pipeline:
     """This is not like a pipe from Bash. Instead of doing stdout to stdin magic
@@ -286,9 +286,10 @@ class Pipeline:
     def __init__(self):
         self.env = None
 
+        self.exe = ExecTools()
         self.job = JobConfig()
 
-        self.pipe_idx = None
+        self.pipe_idx = 0
         self.pipe_dir = None
         self.prev_stdout = None
         self.prev_stderr = None
@@ -297,9 +298,16 @@ class Pipeline:
                        self.job.pipeline_str.split("|")]
         self.stage_count = len(self.pipeline_stages)
 
-    def create_env(self):
-        """Create the environment variables for starting the execution"""
-        self.env = Env()
+    def pipeline_run(self):
+        """The main loop of the pipeline"""
+
+        for checkout in self.conf.git_in.checkouts(self.env):
+            checkout.checkout()
+            for stage in pipeline.stages():
+                self.conf.git_out.prepare(stage.env)
+                stage.run()
+                self.conf.git_out.add_commit_push(stage.env)
+
 
 class JobConfig:
     """Store the instances related to the job described on the job_conf file"""
