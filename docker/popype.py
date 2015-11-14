@@ -39,6 +39,11 @@ def exit_info(msg):
     logging.info(msg + ". Exiting...")
     exit(0)
 
+def log_warn(msg):
+    """Log the warning"""
+
+    logging.warn(msg)
+
 
 class GitRepoConfig:
     """Configuration of the Git repository, mostly from the configuration
@@ -60,7 +65,8 @@ class GitRepoConfig:
             self.config_url = repo_or_config
 
 class GitRepo:
-    """A git repository"""
+    """A git repository. This class is iterable returning one checkout for each
+    interaction."""
 
     def __init__(self, exec_env, repo_or_config, isrepo=False, isconfig=False):
         self.clean = False
@@ -70,6 +76,21 @@ class GitRepo:
         self.conf = GitRepoConfig(repo_or_config, isrepo, isconfig)
         self.exec_env = exec_env
         self.run = self.exec_env.run
+
+    def __iter__(self):
+        # Do I need this?
+        #if len(self.checkout_targets) == 0:
+        #    raise StopIteration
+        #
+        #self.checkout_targets.reverse()
+        #self.checkout_idx = 0
+        return self
+
+    def __next__(self):
+        if len(self.checkout_targets) == 0:
+            raise StopIteration
+
+        return self.next_checkout()
 
     def reset_clean(self):
         """git reset --hard; git clean -f -x -d"""
@@ -302,12 +323,16 @@ class Pipeline:
         """The main loop of the pipeline"""
 
         for checkout in self.conf.git_in.checkouts(self.env):
-            checkout.checkout()
-            for stage in pipeline.stages():
-                self.conf.git_out.prepare(stage.env)
-                stage.run()
-                self.conf.git_out.add_commit_push(stage.env)
-
+            self.env.checkout = checkout
+            for stage in self.stages():
+                self.env.stage = stage
+                self.conf.git_out.prepare(self.env)
+                self.env.return_code = self.run(stage)
+                self.conf.git_out.add_commit_push(self.env)
+                if self.env.return_code < 0:
+                    log_warn("Error running " + self.env.stage + " for " +
+                            self.env.checkout)
+                    break
 
 class JobConfig:
     """Store the instances related to the job described on the job_conf file"""
@@ -386,11 +411,11 @@ class JobConfig:
         # [pipeline]
         self.pipeline_str = self.conf.get("pipeline", "pipeline")
 
-class ExecEnv:
-    """ TheJob() has all important instances we will need during execution.
-    Let's run it then."""
+class ExecTools:
+    """Tools for execution"""
 
     def __init__(self):
+        self.env = None
         self.conf = None
         self.cwd = ""
         self.dl_dir = ""
